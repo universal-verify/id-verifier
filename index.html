@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID Verifier - Frontend Example</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <script type="module" src="scripts/pages/index.js"></script>
+</head>
+<body class="font-sans max-w-4xl mx-auto p-5 leading-relaxed">
+    <h1 class="text-3xl font-bold mb-6">🚀 ID Verifier - Digital Credentials API Demo</h1>
+    
+    <div class="bg-gray-50 rounded-lg p-5 mb-5">
+        <h2 class="text-xl font-semibold mb-3">Digital Credential Verification</h2>
+        <p class="mb-4">This example demonstrates how to request and verify digital credentials using the id-verifier library.</p>
+        
+        <div id="status" class="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-4 mb-4">
+            Checking browser compatibility...
+        </div>
+        
+        <button id="requestBtn" disabled
+                class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white border-none py-3 px-6 rounded-md cursor-pointer text-base mr-2 mb-2 transition-colors">
+            Request Credentials
+        </button>
+        
+        <div id="result" class="bg-white border border-gray-300 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm hidden"></div>
+    </div>
+
+    <!-- Configuration -->
+    <div class="bg-gray-50 rounded-lg p-5 mb-5">
+        <h2 class="text-xl font-semibold mb-3">Configure Request</h2>
+        <p class="mb-4 text-gray-600">Select which document types and information you'd like to request from the user's credentials:</p>
+        
+        <!-- Document Types -->
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-3">Document Types</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex items-center bg-white rounded-lg p-4 border border-gray-200">
+                    <input type="checkbox" name="mobileDriversLicense" class="rounded text-blue-600 mr-3" checked>
+                    <div>
+                        <span class="text-sm font-medium text-gray-700">Mobile Driver's License</span>
+                        <p class="text-xs text-gray-500 mt-1">ISO 18013-5 mDL standard</p>
+                    </div>
+                </label>
+                
+                <label class="flex items-center bg-white rounded-lg p-4 border border-gray-200">
+                    <input type="checkbox" name="photoId" class="rounded text-blue-600 mr-3">
+                    <div>
+                        <span class="text-sm font-medium text-gray-700">Photo ID</span>
+                        <p class="text-xs text-gray-500 mt-1">ISO 23220 Photo ID standard</p>
+                    </div>
+                </label>
+                
+                <label class="flex items-center bg-white rounded-lg p-4 border border-gray-200">
+                    <input type="checkbox" name="euPersonalId" class="rounded text-blue-600 mr-3">
+                    <div>
+                        <span class="text-sm font-medium text-gray-700">EU Personal ID</span>
+                        <p class="text-xs text-gray-500 mt-1">European Digital Identity</p>
+                    </div>
+                </label>
+                
+                <label class="flex items-center bg-white rounded-lg p-4 border border-gray-200">
+                    <input type="checkbox" name="japanMyNumberCard" class="rounded text-blue-600 mr-3">
+                    <div>
+                        <span class="text-sm font-medium text-gray-700">Japan My Number Card</span>
+                        <p class="text-xs text-gray-500 mt-1">Japanese national ID</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Claims -->
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold mb-3">Requested Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <!-- Personal Information -->
+                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                    <h4 class="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide">Personal Information</h4>
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="givenName" class="rounded text-blue-600 mr-2" checked>
+                            <span class="text-sm font-medium text-gray-700">Given Name</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="familyName" class="rounded text-blue-600 mr-2" checked>
+                            <span class="text-sm font-medium text-gray-700">Family Name</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="birthDate" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Birth Date</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="ageOver21" class="rounded text-blue-600 mr-2" checked>
+                            <span class="text-sm font-medium text-gray-700">Age Over 21</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Address Information -->
+                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                    <h4 class="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide">Address Information</h4>
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="address" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Address</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="city" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">City</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="state" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">State</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="postalCode" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Postal Code</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Document Information -->
+                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                    <h4 class="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide">Document Information</h4>
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="documentNumber" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Document Number</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="issuingAuthority" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Issuing Authority</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="portrait" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Portrait</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="nationality" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Nationality</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p class="text-sm text-blue-800">
+                <strong>Note:</strong> Check the boxes for the document types and information you'd like to request from the user's credentials. 
+                All selected claims will be requested from the available credential formats.
+            </p>
+        </div>
+        
+        <!-- Sample Script -->
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold mb-3">Sample Code</h3>
+            <p class="text-sm text-gray-600 mb-3">Here's the code that would be used to request the selected claims:</p>
+            <div id="sampleScript" class="bg-gray-50 border border-gray-200 rounded-md p-4 font-mono text-sm overflow-x-auto">
+                <div class="mb-2 text-gray-700">// Import the library</div>
+                <div class="mb-2"><span class="text-purple-600">import</span> { <span class="text-blue-600">createRequestParams</span>, <span class="text-blue-600">getCredentials</span> } <span class="text-purple-600">from</span> <span class="text-green-600">'id-verifier'</span>;</div>
+                <div class="mb-2"></div>
+                <div class="mb-2 text-gray-700">// Create request parameters on the backend</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">requestParams</span> = <span class="text-blue-600">createRequestParams</span>({</div>
+                <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">documentTypes</span>: [<span id="documentTypesList" class="text-green-600">'org.iso.18013.5.1.mDL'</span>],</div>
+                <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">claims</span>: [<span id="claimsList" class="text-green-600">'givenName', 'familyName', 'ageOver21'</span>]</div>
+                <div class="mb-2">});</div>
+                <div class="mb-2"></div>
+                <div class="mb-2 text-gray-700">// Request credentials on the frontend</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">credential</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">getCredentials</span>(<span class="text-blue-600">requestParams</span>);</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-gray-50 rounded-lg p-5 mb-5">
+        <h2 class="text-xl font-semibold mb-3">How it works</h2>
+        <ol class="list-decimal list-inside space-y-2 mb-4">
+            <li><strong>Configure your request</strong> - Select which information you need from what types of documents</li>
+            <li><strong>Request credentials</strong> - The browser prompts the user to select and share their credentials</li>
+            <li><strong>User consents</strong> - The user reviews and approves the credential request</li>
+            <li><strong>Credential is returned</strong> - The browser returns the requested credential data</li>
+            <li><strong>Backend verifies</strong> - The server validates the credential and extracts information</li>
+        </ol>
+        
+        <h3 class="text-lg font-semibold mb-2">Supported Document Types</h3>
+        <ul class="list-disc list-inside space-y-1 mb-4">
+            <li>Photo ID (ISO 23220)</li>
+            <li>EU Personal ID</li>
+            <li>Japan My Number Card</li>
+            <li>Mobile Driver's License (ISO 18013-5)</li>
+        </ul>
+        
+        <h3 class="text-lg font-semibold mb-2">Supported Protocols</h3>
+        <ul class="list-disc list-inside space-y-1">
+            <li>OpenID4VP</li>
+            <li>ISO mDoc</li>
+        </ul>
+    </div>
+
+    <div class="bg-gray-50 rounded-lg p-5 mb-5">
+        <h2 class="text-xl font-semibold mb-3">Browser Support</h2>
+        <p class="mb-4">This demo requires a browser that supports the Digital Credentials API. Currently, this is an experimental API and may not be available in all browsers.</p>
+        
+        <p class="mb-3"><strong>Note:</strong> In a real application, you would:</p>
+        <ul class="list-disc list-inside space-y-1">
+            <li>Send the credential response to your backend for verification</li>
+            <li>Implement proper error handling and user feedback</li>
+            <li>Use HTTPS in production</li>
+            <li>Follow privacy and security best practices</li>
+        </ul>
+    </div>
+</body>
+</html> 

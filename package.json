@@ -1,0 +1,45 @@
+{
+  "name": "id-verifier",
+  "version": "0.0.1",
+  "description": "A JavaScript library that simplifies digital ID verification using the W3C Digital Credentials API",
+  "homepage": "https://github.com/universal-verify/id-verifier#readme",
+  "license": "MPL-2.0",
+  "author": "kalegd",
+  "type": "module",
+  "main": "build/id-verifier.min.js",
+  "scripts": {
+    "build": "rollup -c --bundleConfigAsCjs",
+    "start": "http-server -c-1 -p 8000",
+    "start-ssl": "http-server -S -C ssl/cert.pem -K ssl/key.pem -c-1 -p 8000",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "tailwindcss -i ./styles/input.css -o ./styles/main.css --minify",
+    "watch:css": "tailwindcss -i ./styles/input.css -o ./styles/main.css --watch"
+  },
+  "keywords": [
+    "digital-credentials",
+    "w3c",
+    "mdoc",
+    "mobile-id",
+    "verifiable-credentials",
+    "identity-verification",
+    "digital-id",
+    "id-verification",
+    "credential-management",
+    "browser-api"
+  ],
+  "bugs": {
+    "url": "https://github.com/universal-verify/id-verifier/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universal-verify/id-verifier.git"
+  },
+  "dependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "http-server": "^14.1.1",
+    "rollup": "^4.41.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}
