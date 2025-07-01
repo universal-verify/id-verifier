@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ID Verifier - Frontend Example</title>
     <link rel="stylesheet" href="styles/main.css">
+    <link rel="apple-touch-icon" sizes="180x180" href="./favicons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicons/favicon-16x16.png">
+    <script type="importmap">
+        {
+            "imports": {
+                "cbor2": "https://cdn.jsdelivr.net/npm/cbor2@2.0.1/+esm",
+                "cose-js": "https://cdn.jsdelivr.net/npm/cose-js@0.9.0/+esm"
+            }
+        }
+    </script>
     <script type="module" src="scripts/pages/index.js"></script>
 </head>
 <body class="font-sans max-w-4xl mx-auto p-5 leading-relaxed">
@@ -23,7 +34,7 @@
             Request Credentials
         </button>
         
-        <div id="result" class="bg-white border border-gray-300 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm hidden"></div>
+        <div id="result" class="bg-white border border-gray-300 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm overflow-x-auto hidden"></div>
     </div>
 
     <!-- Configuration -->

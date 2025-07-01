@@ -5,9 +5,10 @@ A JavaScript library that simplifies digital ID verification using the W3C Digit
 ## Features
 
 - **Cross-platform**: Works in both browser and Node.js environments
-- **Protocol Support**: Supports mDoc, W3C Verifiable Credentials, and ISO 18013-5 protocols
-- **Type Safety**: Built-in validation for credential types and protocols
-- **Security**: Includes nonce generation and timeout handling
+- **Protocol Support**: Supports OpenID4VP and ISO mDoc protocols
+- **Document Types**: Supports multiple document types including Mobile Driver's License, Photo ID, EU Personal ID, and Japan My Number Card
+- **Type Safety**: Built-in validation for document types and claims
+- **Security**: Includes nonce generation, timeouts, and trusted issuer verification
 - **Flexible**: Configurable for different use cases and requirements
 
 ## Installation
@@ -21,18 +22,16 @@ npm install id-verifier
 ### Backend: Create Request Parameters
 
 ```javascript
-import { createRequestParams, CREDENTIAL_TYPES, PROTOCOLS } from 'id-verifier';
+import { createRequestParams, DocumentType, SupportedClaim } from 'id-verifier';
 
 // Create request parameters for a driver's license verification
 const requestParams = createRequestParams({
-  credentialTypes: [CREDENTIAL_TYPES.DRIVERS_LICENSE],
-  protocol: PROTOCOLS.MDOC,
-  verifierId: 'your-verifier-id',
-  purpose: 'age_verification',
-  requestData: {
-    // Additional data specific to your use case
-    requiredAttributes: ['given_name', 'family_name', 'birth_date']
-  }
+  documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
+  claims: [
+    SupportedClaim.GIVEN_NAME,
+    SupportedClaim.FAMILY_NAME,
+    SupportedClaim.AGE_OVER_21
+  ]
 });
 
 // Send these parameters to your frontend
@@ -46,8 +45,7 @@ import { getCredentials } from 'id-verifier';
 // Request credentials from the user
 try {
   const credentialResponse = await getCredentials(requestParams, {
-    timeout: 30000, // 30 seconds
-    silent: false   // Show user prompts
+    timeout: 300000 // 5 minutes
   });
   
   // Send the credential response to your backend for verification
@@ -65,12 +63,12 @@ try {
 ### Backend: Verify Credentials
 
 ```javascript
-import { verifyCredentials, PROTOCOLS, CREDENTIAL_TYPES } from 'id-verifier';
+import { verifyCredentials, DocumentType } from 'id-verifier';
 
 // Verify the credential response
 const verificationResult = await verifyCredentials(credentialResponse, {
-  expectedProtocol: PROTOCOLS.MDOC,
-  expectedTypes: [CREDENTIAL_TYPES.DRIVERS_LICENSE],
+  expectedProtocol: 'openid4vp',
+  expectedTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
   verifierId: 'your-verifier-id',
   trustedIssuers: ['trusted-issuer-1', 'trusted-issuer-2']
 });
@@ -87,20 +85,36 @@ if (verificationResult.verified) {
 
 ### Constants
 
-#### `CREDENTIAL_TYPES`
-Supported credential types:
-- `DRIVERS_LICENSE` - Driver's license
-- `PASSPORT` - Passport
-- `NATIONAL_ID` - National ID card
-- `GOVERNMENT_ID` - Government-issued ID
-- `EMPLOYMENT_VERIFICATION` - Employment verification
-- `EDUCATION_VERIFICATION` - Education verification
+#### `DocumentType`
+Supported document types:
+- `MOBILE_DRIVERS_LICENSE` - Mobile Driver's License (ISO 18013-5 mDL)
+- `PHOTO_ID` - Photo ID (ISO 23220)
+- `EU_PERSONAL_ID` - EU Personal ID (European Digital Identity)
+- `JAPAN_MY_NUMBER_CARD` - Japan My Number Card
 
-#### `PROTOCOLS`
-Supported protocols:
-- `MDOC` - mDoc (ISO 18013-5)
-- `W3C_VC` - W3C Verifiable Credentials
-- `ISO_18013_5` - ISO 18013-5 standard
+#### `SupportedClaim`
+Supported claim fields that can be requested:
+- `GIVEN_NAME` - Given name
+- `FAMILY_NAME` - Family name
+- `FULL_NAME` - Full name
+- `BIRTH_DATE` - Birth date
+- `AGE` - Age
+- `AGE_OVER_18` - Age over 18 verification
+- `AGE_OVER_21` - Age over 21 verification
+- `ADDRESS` - Address
+- `CITY` - City
+- `STATE` - State/Province
+- `POSTAL_CODE` - Postal code
+- `COUNTRY` - Country
+- `NATIONALITY` - Nationality
+- `GENDER` - Gender
+- `PLACE_OF_BIRTH` - Place of birth
+- `DOCUMENT_NUMBER` - Document number
+- `ISSUING_AUTHORITY` - Issuing authority
+- `ISSUE_DATE` - Issue date
+- `EXPIRY_DATE` - Expiry date
+- `PORTRAIT` - Portrait photo
+- `SIGNATURE` - Signature
 
 ### Functions
 
@@ -110,21 +124,21 @@ Creates request parameters for digital credential verification.
 
 **Parameters:**
 - `options` (Object):
-  - `credentialTypes` (string|Array<string>): Type(s) of credentials to request
-  - `protocol` (string): Protocol to use for credential exchange
-  - `requestData` (Object): Additional data for the credential request
-  - `verifierId` (string): Unique identifier for the verifier
-  - `purpose` (string): Purpose of the credential request
+  - `documentTypes` (string|Array<string>): Type(s) of documents to request (default: `[DocumentType.MOBILE_DRIVERS_LICENSE]`)
+  - `claims` (Array<string>): Array of claim fields from `SupportedClaim` to request (default: `[]`)
 
 **Returns:** Object compatible with Digital Credentials API
 
 **Example:**
 ```javascript
 const params = createRequestParams({
-  credentialTypes: [CREDENTIAL_TYPES.DRIVERS_LICENSE, CREDENTIAL_TYPES.PASSPORT],
-  protocol: PROTOCOLS.MDOC,
-  verifierId: 'my-app-verifier',
-  purpose: 'identity_verification'
+  documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE, DocumentType.PHOTO_ID],
+  claims: [
+    SupportedClaim.GIVEN_NAME,
+    SupportedClaim.FAMILY_NAME,
+    SupportedClaim.AGE_OVER_21,
+    SupportedClaim.ADDRESS
+  ]
 });
 ```
 
@@ -135,16 +149,14 @@ Requests digital credentials from the user (browser-only).
 **Parameters:**
 - `requestParams` (Object): Request parameters from `createRequestParams`
 - `options` (Object):
-  - `silent` (boolean): Whether to suppress user prompts (default: false)
-  - `timeout` (number): Request timeout in milliseconds (default: 30000)
+  - `timeout` (number): Request timeout in milliseconds (default: 300000)
 
 **Returns:** Promise that resolves to credential data
 
 **Example:**
 ```javascript
 const credential = await getCredentials(requestParams, {
-  timeout: 60000,
-  silent: false
+  timeout: 600000 // 10 minutes
 });
 ```
 
@@ -156,7 +168,7 @@ Verifies a digital credential response.
 - `credentialResponse` (Object): The credential response from `getCredentials`
 - `options` (Object):
   - `expectedProtocol` (string): Expected protocol for verification
-  - `expectedTypes` (Array<string>): Expected credential types
+  - `expectedTypes` (Array<string>): Expected document types
   - `verifierId` (string): Verifier ID for validation
   - `trustedIssuers` (Array<string>): List of trusted issuer identifiers
 
@@ -165,43 +177,51 @@ Verifies a digital credential response.
 **Example:**
 ```javascript
 const result = await verifyCredentials(credentialResponse, {
-  expectedProtocol: PROTOCOLS.MDOC,
-  expectedTypes: [CREDENTIAL_TYPES.DRIVERS_LICENSE],
+  expectedProtocol: 'openid4vp-v1-unsigned',
+  expectedTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
   trustedIssuers: ['dmv.gov', 'state.gov']
 });
 ```
 
-## Response Formats
+## Complete Example
 
-### Credential Response
-```javascript
-{
-  id: "credential-id",
-  type: "digital-credential",
-  data: { /* credential data */ },
-  protocol: "mdoc",
-  timestamp: "2024-01-01T00:00:00.000Z"
-}
-```
+Here's a complete example showing how to use the library:
 
-### Verification Result
 ```javascript
-{
-  verified: true,
-  protocol: "mdoc",
-  credentialId: "credential-id",
-  timestamp: "2024-01-01T00:00:00.000Z",
-  verificationDetails: {
-    protocol: "mdoc",
-    documentsVerified: 1,
-    verificationResults: [/* ... */]
-  },
-  idInformation: {
-    protocol: "mdoc",
-    documents: [/* ... */],
-    personalInfo: { /* ... */ },
-    extractedAt: "2024-01-01T00:00:00.000Z"
+import { createRequestParams, getCredentials, verifyCredentials, DocumentType, SupportedClaim } from 'id-verifier';
+
+// Backend: Create request parameters
+const requestParams = createRequestParams({
+  documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
+  claims: [
+    SupportedClaim.GIVEN_NAME,
+    SupportedClaim.FAMILY_NAME,
+    SupportedClaim.AGE_OVER_21,
+    SupportedClaim.ADDRESS
+  ]
+});
+
+// Frontend: Request credentials
+try {
+  const credential = await getCredentials(requestParams);
+  console.log('Credential received:', credential);
+  
+  // Send to backend for verification
+  const verificationResult = await verifyCredentials(credential, {
+    expectedProtocol: 'openid4vp',
+    expectedTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
+    trustedIssuers: ['trusted-issuer.com']
+  });
+  
+  if (verificationResult.verified) {
+    console.log('Verification successful!');
+    console.log('ID Information:', verificationResult.idInformation);
+  } else {
+    console.error('Verification failed:', verificationResult.error);
   }
+  
+} catch (error) {
+  console.error('Error:', error.message);
 }
 ```
 
@@ -223,6 +243,9 @@ try {
     case 'Credential request timed out':
       // Handle timeout
       break;
+    case 'No credential was provided by the user':
+      // Handle no credential provided
+      break;
     default:
       // Handle other errors
   }
@@ -240,6 +263,7 @@ This library requires browsers that support the Digital Credentials API. Current
 - Implement proper timeout handling
 - Store sensitive credential data securely
 - Follow privacy best practices for handling personal information
+- Use HTTPS in production environments
 
 ## Contributing
 

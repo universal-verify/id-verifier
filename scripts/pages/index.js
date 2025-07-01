@@ -2,6 +2,7 @@
 import { 
     createRequestParams, 
     getCredentials, 
+    verifyCredentials,
     SupportedClaim,
     DocumentType
 } from '../id-verifier.js';
@@ -171,9 +172,9 @@ class IndexPage {
         this.resultEl.textContent = message;
         
         const classes = {
-            info: 'bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm',
-            success: 'bg-green-50 border border-green-200 text-green-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm',
-            error: 'bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm'
+            info: 'bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm overflow-x-auto text-nowrap',
+            success: 'bg-green-50 border border-green-200 text-green-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm overflow-x-auto text-nowrap',
+            error: 'bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm overflow-x-auto text-nowrap'
         };
 
         this.resultEl.className = classes[type] || classes.info;
@@ -196,14 +197,21 @@ class IndexPage {
                 documentTypes,
                 claims
             });
-
             console.log('Request parameters:', JSON.stringify(requestParams, null, 2));
 
             // Request the credential
             const credential = await getCredentials(requestParams);
+            console.log('Credential:', credential);
 
             this.showResult('✅ Credential received successfully!\n\n' + 
                 JSON.stringify(credential, null, 2), 'success');
+            
+            // Verify the credential
+            const verified = await verifyCredentials(credential);
+            console.log('Credential verified:', verified);
+
+            this.showResult('✅ Credential verified successfully!\n\n' + 
+                JSON.stringify(verified, null, 2), 'success');
 
         } catch (error) {
             this.showResult('❌ Credential request failed:\n' + error.message, 'error');
