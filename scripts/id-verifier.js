@@ -56,7 +56,6 @@ export const createRequestParams = (options = {}) => {
                     nonce: generateNonce(),
                     response_mode: "dc_api",
                     response_type: "vp_token",
-                    client_id: 'verifier_attestation:example-client',
                 }
             });
         }
@@ -171,9 +170,9 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
             throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
         }
 
-
         return {
-            verified: verificationResult.verified,
+            verified: true,
+            trusted: verificationResult.trusted,
             claims: verificationResult.claims,
         };
 

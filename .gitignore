@@ -138,3 +138,4 @@ dist
 ssl/*
 
 .DS_Store
+playground/

@@ -88,15 +88,31 @@ class IndexPage {
             'givenName': SupportedClaim.GIVEN_NAME,
             'familyName': SupportedClaim.FAMILY_NAME,
             'birthDate': SupportedClaim.BIRTH_DATE,
+            'birthYear': SupportedClaim.BIRTH_YEAR,
+            'age': SupportedClaim.AGE,
+            'ageOver18': SupportedClaim.AGE_OVER_18,
             'ageOver21': SupportedClaim.AGE_OVER_21,
+            'sex': SupportedClaim.SEX,
+            'height': SupportedClaim.HEIGHT,
+            'weight': SupportedClaim.WEIGHT,
+            'eyeColor': SupportedClaim.EYE_COLOR,
+            'hairColor': SupportedClaim.HAIR_COLOR,
             'address': SupportedClaim.ADDRESS,
             'city': SupportedClaim.CITY,
             'state': SupportedClaim.STATE,
             'postalCode': SupportedClaim.POSTAL_CODE,
+            'country': SupportedClaim.COUNTRY,
+            'nationality': SupportedClaim.NATIONALITY,
+            'placeOfBirth': SupportedClaim.PLACE_OF_BIRTH,
             'documentNumber': SupportedClaim.DOCUMENT_NUMBER,
             'issuingAuthority': SupportedClaim.ISSUING_AUTHORITY,
+            'issuingCountry': SupportedClaim.ISSUING_COUNTRY,
+            'issuingJurisdiction': SupportedClaim.ISSUING_JURISDICTION,
+            'issueDate': SupportedClaim.ISSUE_DATE,
+            'expiryDate': SupportedClaim.EXPIRY_DATE,
+            'drivingPrivileges': SupportedClaim.DRIVING_PRIVILEGES,
             'portrait': SupportedClaim.PORTRAIT,
-            'nationality': SupportedClaim.NATIONALITY
+            'signature': SupportedClaim.SIGNATURE
         };
 
         // Check each claim checkbox

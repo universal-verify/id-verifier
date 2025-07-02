@@ -1,5 +1,5 @@
 import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings } from './constants.js';
-import { decodeVpToken, verifyDocument } from './CBORHelper.js';
+import { decodeVpToken, verifyDocument } from './oid4vp/MDocHelper.js';
 
 class OpenID4VPProtocolHelper {
     constructor() {
@@ -27,7 +27,11 @@ class OpenID4VPProtocolHelper {
                         format,
                         id: `cred_${format}`,
                         claims: formatClaims,
-                        meta: {}
+                        meta: {},
+                        trusted_authorities: [{
+                            "type": "aki",
+                            "values": ["s9tIpPmhxdiuN"]
+                          }]
                     };
                     if(format === CredentialFormat.MSO_MDOC) {
                         //https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#appendix-B.2.3
@@ -59,6 +63,7 @@ class OpenID4VPProtocolHelper {
         const decodedTokens = [];
         const claims = {};
         const documents = [];
+        let trusted = true;
         for(let token of tokens) {
             //verify base64url-encoded CBOR data
             const decoded = await decodeVpToken(token);
@@ -69,18 +74,16 @@ class OpenID4VPProtocolHelper {
             documents.push(...decodedToken.documents);
         }
         for(let document of documents) {
-            let { claims: documentClaims, verified: documentVerified } = await verifyDocument(document);
+            let { claims: documentClaims, trusted: documentTrusted } = await verifyDocument(document);
+            trusted = trusted && documentTrusted;
             for(let key in documentClaims) {
-                claims[key] = {
-                    value: documentClaims[key],
-                    verified: documentVerified,
-                    trusted: true,
-                };
+                claims[key] = documentClaims[key];
             }
         }
         return {
             verified: true,
             claims: claims,
+            trusted: trusted,
         };
     }
 }

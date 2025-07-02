@@ -12,7 +12,8 @@
         {
             "imports": {
                 "cbor2": "https://cdn.jsdelivr.net/npm/cbor2@2.0.1/+esm",
-                "cose-js": "https://cdn.jsdelivr.net/npm/cose-js@0.9.0/+esm"
+                "pkijs": "https://cdn.jsdelivr.net/npm/pkijs@3.2.5/+esm",
+                "asn1js": "https://cdn.jsdelivr.net/npm/asn1js@3.0.6/+esm"
             }
         }
     </script>
@@ -104,8 +105,58 @@
                         </label>
                         
                         <label class="flex items-center">
+                            <input type="checkbox" name="birthYear" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Birth Year</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="age" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Age</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="ageOver18" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Age Over 18</span>
+                        </label>
+                        
+                        <label class="flex items-center">
                             <input type="checkbox" name="ageOver21" class="rounded text-blue-600 mr-2" checked>
                             <span class="text-sm font-medium text-gray-700">Age Over 21</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="sex" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Sex</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="height" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Height</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="weight" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Weight</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="eyeColor" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Eye Color</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="hairColor" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Hair Color</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="nationality" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Nationality</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="placeOfBirth" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Place of Birth</span>
                         </label>
                     </div>
                 </div>
@@ -133,6 +184,11 @@
                             <input type="checkbox" name="postalCode" class="rounded text-blue-600 mr-2">
                             <span class="text-sm font-medium text-gray-700">Postal Code</span>
                         </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="country" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Country</span>
+                        </label>
                     </div>
                 </div>
 
@@ -151,13 +207,38 @@
                         </label>
                         
                         <label class="flex items-center">
+                            <input type="checkbox" name="issuingCountry" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Issuing Country</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="issuingJurisdiction" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Issuing Jurisdiction</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="issueDate" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Issue Date</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="expiryDate" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Expiry Date</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" name="drivingPrivileges" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Driving Privileges</span>
+                        </label>
+                        
+                        <label class="flex items-center">
                             <input type="checkbox" name="portrait" class="rounded text-blue-600 mr-2">
                             <span class="text-sm font-medium text-gray-700">Portrait</span>
                         </label>
                         
                         <label class="flex items-center">
-                            <input type="checkbox" name="nationality" class="rounded text-blue-600 mr-2">
-                            <span class="text-sm font-medium text-gray-700">Nationality</span>
+                            <input type="checkbox" name="signature" class="rounded text-blue-600 mr-2">
+                            <span class="text-sm font-medium text-gray-700">Signature</span>
                         </label>
                     </div>
                 </div>
