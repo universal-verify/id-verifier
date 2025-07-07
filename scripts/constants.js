@@ -34,7 +34,7 @@ export const ProtocolFormats = {
 /**
  * Supported claim fields that can be requested
  */
-export const SupportedClaim = {
+export const Claim = {
     AGE: 'age',
     AGE_OVER_18: 'age_over_18',
     AGE_OVER_21: 'age_over_21',
@@ -68,34 +68,34 @@ export const SupportedClaim = {
 export const ClaimMappings = {
     [CredentialFormat.MSO_MDOC]: {
         [DocumentType.MOBILE_DRIVERS_LICENSE]: {
-            [SupportedClaim.GIVEN_NAME]: ['org.iso.18013.5.1', 'given_name'],
-            [SupportedClaim.FAMILY_NAME]: ['org.iso.18013.5.1', 'family_name'],
-            [SupportedClaim.BIRTH_DATE]: ['org.iso.18013.5.1', 'birth_date'],
-            [SupportedClaim.BIRTH_YEAR]: ['org.iso.18013.5.1', 'age_birth_year'],
-            [SupportedClaim.AGE]: ['org.iso.18013.5.1', 'age_in_years'],
-            [SupportedClaim.AGE_OVER_18]: ['org.iso.18013.5.1', 'age_over_18'],
-            [SupportedClaim.AGE_OVER_21]: ['org.iso.18013.5.1', 'age_over_21'],
-            [SupportedClaim.HEIGHT]: ['org.iso.18013.5.1', 'height'],
-            [SupportedClaim.WEIGHT]: ['org.iso.18013.5.1', 'weight'],
-            [SupportedClaim.EYE_COLOR]: ['org.iso.18013.5.1', 'eye_colour'],
-            [SupportedClaim.HAIR_COLOR]: ['org.iso.18013.5.1', 'hair_colour'],
-            [SupportedClaim.ADDRESS]: ['org.iso.18013.5.1', 'resident_address'],
-            [SupportedClaim.CITY]: ['org.iso.18013.5.1', 'resident_city'],
-            [SupportedClaim.STATE]: ['org.iso.18013.5.1', 'resident_state'],
-            [SupportedClaim.POSTAL_CODE]: ['org.iso.18013.5.1', 'resident_postal_code'],
-            [SupportedClaim.COUNTRY]: ['org.iso.18013.5.1', 'resident_country'],
-            [SupportedClaim.NATIONALITY]: ['org.iso.18013.5.1', 'nationality'],
-            [SupportedClaim.SEX]: ['org.iso.18013.5.1', 'sex'],
-            [SupportedClaim.PLACE_OF_BIRTH]: ['org.iso.18013.5.1', 'birth_place'],
-            [SupportedClaim.DOCUMENT_NUMBER]: ['org.iso.18013.5.1', 'document_number'],
-            [SupportedClaim.ISSUING_AUTHORITY]: ['org.iso.18013.5.1', 'issuing_authority'],
-            [SupportedClaim.ISSUING_COUNTRY]: ['org.iso.18013.5.1', 'issuing_country'],
-            [SupportedClaim.ISSUING_JURISDICTION]: ['org.iso.18013.5.1', 'issuing_jurisdiction'],
-            [SupportedClaim.ISSUE_DATE]: ['org.iso.18013.5.1', 'issue_date'],
-            [SupportedClaim.EXPIRY_DATE]: ['org.iso.18013.5.1', 'expiry_date'],
-            [SupportedClaim.DRIVING_PRIVILEGES]: ['org.iso.18013.5.1', 'driving_privileges'],
-            [SupportedClaim.PORTRAIT]: ['org.iso.18013.5.1', 'portrait'],
-            [SupportedClaim.SIGNATURE]: ['org.iso.18013.5.1', 'signature_usual_mark']
+            [Claim.GIVEN_NAME]: ['org.iso.18013.5.1', 'given_name'],
+            [Claim.FAMILY_NAME]: ['org.iso.18013.5.1', 'family_name'],
+            [Claim.BIRTH_DATE]: ['org.iso.18013.5.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['org.iso.18013.5.1', 'age_birth_year'],
+            [Claim.AGE]: ['org.iso.18013.5.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['org.iso.18013.5.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['org.iso.18013.5.1', 'age_over_21'],
+            [Claim.HEIGHT]: ['org.iso.18013.5.1', 'height'],
+            [Claim.WEIGHT]: ['org.iso.18013.5.1', 'weight'],
+            [Claim.EYE_COLOR]: ['org.iso.18013.5.1', 'eye_colour'],
+            [Claim.HAIR_COLOR]: ['org.iso.18013.5.1', 'hair_colour'],
+            [Claim.ADDRESS]: ['org.iso.18013.5.1', 'resident_address'],
+            [Claim.CITY]: ['org.iso.18013.5.1', 'resident_city'],
+            [Claim.STATE]: ['org.iso.18013.5.1', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['org.iso.18013.5.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['org.iso.18013.5.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['org.iso.18013.5.1', 'nationality'],
+            [Claim.SEX]: ['org.iso.18013.5.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['org.iso.18013.5.1', 'birth_place'],
+            [Claim.DOCUMENT_NUMBER]: ['org.iso.18013.5.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['org.iso.18013.5.1', 'issuing_authority'],
+            [Claim.ISSUING_COUNTRY]: ['org.iso.18013.5.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['org.iso.18013.5.1', 'issuing_jurisdiction'],
+            [Claim.ISSUE_DATE]: ['org.iso.18013.5.1', 'issue_date'],
+            [Claim.EXPIRY_DATE]: ['org.iso.18013.5.1', 'expiry_date'],
+            [Claim.DRIVING_PRIVILEGES]: ['org.iso.18013.5.1', 'driving_privileges'],
+            [Claim.PORTRAIT]: ['org.iso.18013.5.1', 'portrait'],
+            [Claim.SIGNATURE]: ['org.iso.18013.5.1', 'signature_usual_mark']
         }
     }
 };

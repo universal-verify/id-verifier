@@ -1,4 +1,4 @@
-import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, SupportedClaim } from './constants.js';
+import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim } from './constants.js';
 import OpenID4VPProtocolHelper from './OpenID4VPProtocolHelper.js';
 
 /**
@@ -12,7 +12,7 @@ import OpenID4VPProtocolHelper from './OpenID4VPProtocolHelper.js';
  * 
  * @param {Object} options - Configuration options
  * @param {string|Array<string>} options.documentTypes - Type(s) of documents to request
- * @param {Array<string>} options.claims - Array of claim fields from SupportedClaim to request
+ * @param {Array<string>} options.claims - Array of Claim enum values to request
  * @returns {Object} Request parameters compatible with Digital Credentials API
  */
 export const createRequestParams = (options = {}) => {
@@ -32,7 +32,7 @@ export const createRequestParams = (options = {}) => {
     }
 
     // Validate claims
-    const validClaims = Object.values(SupportedClaim);
+    const validClaims = Object.values(Claim);
     const invalidClaims = claims.filter(claim => !validClaims.includes(claim));
     if (invalidClaims.length > 0) {
         throw new Error(`Invalid claims: ${invalidClaims.join(', ')}`);
@@ -137,17 +137,12 @@ export const getCredentials = async (requestParams, options = {}) => {
  * 
  * @param {Object} credentialResponse - The credential response from getCredentials
  * @param {Object} options - Verification options
- * @param {string} options.expectedProtocol - Expected protocol for verification
- * @param {Array<string>} options.expectedTypes - Expected credential types
- * @param {string} options.verifierId - Verifier ID for validation
- * @param {Object} options.trustedIssuers - List of trusted issuer identifiers
+ * @param {Array<string>} options.trustFrameworks - List of trust frameworks to use for determining trust. Defaults to ['uv']
  * @returns {Promise<Object>} Promise that resolves to verified credential information
  */
 export const verifyCredentials = async (credentialResponse, options = {}) => {
     const {
-        expectedTypes = [],
-        verifierId,
-        trustedIssuers = []
+        trustFrameworks = ['uv']
     } = options;
 
     try {
@@ -165,7 +160,7 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
 
         let verificationResult;
         if(credentialResponse.protocol === Protocol.OPENID4VP) {
-            verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, options);
+            verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, trustFrameworks);
         } else {
             throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
         }
@@ -174,7 +169,7 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
             verified: true,
             claims: verificationResult.claims,
             trusted: verificationResult.trusted,
-            trustedIssuer: verificationResult.trustedIssuer,
+            issuer: verificationResult.issuer,
         };
 
     } catch (error) {
@@ -209,5 +204,5 @@ export {
     Protocol,
     CredentialFormat,
     ProtocolFormats,
-    SupportedClaim
+    Claim
 };

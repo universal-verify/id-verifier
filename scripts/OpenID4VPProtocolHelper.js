@@ -51,15 +51,15 @@ class OpenID4VPProtocolHelper {
         return credentials;
     }
 
-    async verify(credentialData, options) {
+    async verify(credentialData, trustFrameworks) {
         let vpToken = credentialData.vp_token;
         if(vpToken.cred_mso_mdoc) {
-            return this.verifyMsoMdoc(vpToken.cred_mso_mdoc);
+            return this.verifyMsoMdoc(vpToken.cred_mso_mdoc, trustFrameworks);
         }
         throw new Error('Unsupported credential format');
     }
 
-    async verifyMsoMdoc(tokens) {
+    async verifyMsoMdoc(tokens, trustFrameworks) {
         const decodedTokens = [];
         const claims = {};
         const documents = [];
@@ -82,8 +82,8 @@ class OpenID4VPProtocolHelper {
         }
         return {
             claims: claims,
-            trusted: !!issuer,
-            trustedIssuer: typeof issuer === 'object' ? issuer : null,
+            trusted: !!issuer && issuer.trust_frameworks.some(tf => trustFrameworks.includes(tf)),
+            issuer: typeof issuer === 'object' ? issuer : null,
         };
     }
 }

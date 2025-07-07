@@ -22,15 +22,15 @@ npm install id-verifier
 ### Backend: Create Request Parameters
 
 ```javascript
-import { createRequestParams, DocumentType, SupportedClaim } from 'id-verifier';
+import { createRequestParams, DocumentType, Claim } from 'id-verifier';
 
 // Create request parameters for a driver's license verification
 const requestParams = createRequestParams({
   documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
   claims: [
-    SupportedClaim.GIVEN_NAME,
-    SupportedClaim.FAMILY_NAME,
-    SupportedClaim.AGE_OVER_21
+    Claim.GIVEN_NAME,
+    Claim.FAMILY_NAME,
+    Claim.AGE_OVER_21
   ]
 });
 
@@ -63,19 +63,17 @@ try {
 ### Backend: Verify Credentials
 
 ```javascript
-import { verifyCredentials, DocumentType } from 'id-verifier';
+import { verifyCredentials } from 'id-verifier';
 
 // Verify the credential response
 const verificationResult = await verifyCredentials(credentialResponse, {
-  expectedProtocol: 'openid4vp',
-  expectedTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
-  verifierId: 'your-verifier-id',
-  trustedIssuers: ['trusted-issuer-1', 'trusted-issuer-2']
+  trustFrameworks: ['uv']
 });
 
 if (verificationResult.verified) {
   console.log('Credential verified successfully!');
-  console.log('Available ID information:', verificationResult.idInformation);
+  console.log('Available claims:', verificationResult.claims);
+  console.log('Trusted issuer:', verificationResult.issuer);
 } else {
   console.error('Verification failed:', verificationResult.error);
 }
@@ -92,7 +90,7 @@ Supported document types:
 - `EU_PERSONAL_ID` - EU Personal ID (European Digital Identity)
 - `JAPAN_MY_NUMBER_CARD` - Japan My Number Card
 
-#### `SupportedClaim`
+#### `Claim`
 Supported claim fields that can be requested:
 - `GIVEN_NAME` - Given name
 - `FAMILY_NAME` - Family name
@@ -125,7 +123,7 @@ Creates request parameters for digital credential verification.
 **Parameters:**
 - `options` (Object):
   - `documentTypes` (string|Array<string>): Type(s) of documents to request (default: `[DocumentType.MOBILE_DRIVERS_LICENSE]`)
-  - `claims` (Array<string>): Array of claim fields from `SupportedClaim` to request (default: `[]`)
+  - `claims` (Array<string>): Array of claim fields from `Claim` to request (default: `[]`)
 
 **Returns:** Object compatible with Digital Credentials API
 
@@ -134,10 +132,10 @@ Creates request parameters for digital credential verification.
 const params = createRequestParams({
   documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE, DocumentType.PHOTO_ID],
   claims: [
-    SupportedClaim.GIVEN_NAME,
-    SupportedClaim.FAMILY_NAME,
-    SupportedClaim.AGE_OVER_21,
-    SupportedClaim.ADDRESS
+    Claim.GIVEN_NAME,
+    Claim.FAMILY_NAME,
+    Claim.AGE_OVER_21,
+    Claim.ADDRESS
   ]
 });
 ```
@@ -167,20 +165,65 @@ Verifies a digital credential response.
 **Parameters:**
 - `credentialResponse` (Object): The credential response from `getCredentials`
 - `options` (Object):
-  - `expectedProtocol` (string): Expected protocol for verification
-  - `expectedTypes` (Array<string>): Expected document types
-  - `verifierId` (string): Verifier ID for validation
-  - `trustedIssuers` (Array<string>): List of trusted issuer identifiers
+  - `trustFrameworks` (Array<string>): List of trust frameworks to use for determining trust (default: `['uv']`)
 
 **Returns:** Promise that resolves to verification result
 
 **Example:**
 ```javascript
 const result = await verifyCredentials(credentialResponse, {
-  expectedProtocol: 'openid4vp-v1-unsigned',
-  expectedTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
-  trustedIssuers: ['dmv.gov', 'state.gov']
+  trustFrameworks: ['uv']
 });
+```
+
+### Verification Result
+
+The `verifyCredentials` function returns an object with the following structure:
+
+**Success Response:**
+```javascript
+{
+  "verified": true,
+  "claims": {
+    "given_name": "Erika",
+    "family_name": "Mustermann",
+    "age_over_21": true
+  },
+  "trusted": true,
+  "issuer": {
+    "issuer_id": "x509_aki:q2Ub4FbCkFPx3X9s5Ie-aN5gyfU",
+    "entity_type": "government",
+    "entity_metadata": {
+      "country": "US",
+      "region": "VA",
+      "government_level": "state",
+      "official_name": "Multipaz"
+    },
+    "display": {
+      "name": "Multipaz IACA Test",
+      "logo": "https://avatars.githubusercontent.com/u/131064301",
+      "description": "Official issuer of mobile driver's licenses and proof of age credentials in Multipaz."
+    },
+    "trust_frameworks": ["uv"],
+    "certificates": [
+      {
+        "certificate": "-----BEGIN CERTIFICATE-----\n...",
+        "certificate_format": "pem"
+      }
+    ],
+    "expires_at": 4286822400,
+    "signature": "MEQCIAlQbTxkJp80r/p5zrY8DaNDCtpwmycDLESdDpigR1GoAiBpKT17XHvEvmncdMtfTh5atPPnLr0vVJvAuhzCnVCJzA=="
+  }
+}
+```
+
+**Error Response:**
+```javascript
+{
+  "verified": false,
+  "error": "Verification failed: Invalid credential response",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
 ```
 
 ## Complete Example
@@ -188,16 +231,16 @@ const result = await verifyCredentials(credentialResponse, {
 Here's a complete example showing how to use the library:
 
 ```javascript
-import { createRequestParams, getCredentials, verifyCredentials, DocumentType, SupportedClaim } from 'id-verifier';
+import { createRequestParams, getCredentials, verifyCredentials, DocumentType, Claim } from 'id-verifier';
 
 // Backend: Create request parameters
 const requestParams = createRequestParams({
   documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
   claims: [
-    SupportedClaim.GIVEN_NAME,
-    SupportedClaim.FAMILY_NAME,
-    SupportedClaim.AGE_OVER_21,
-    SupportedClaim.ADDRESS
+    Claim.GIVEN_NAME,
+    Claim.FAMILY_NAME,
+    Claim.AGE_OVER_21,
+    Claim.ADDRESS
   ]
 });
 
@@ -208,14 +251,13 @@ try {
   
   // Send to backend for verification
   const verificationResult = await verifyCredentials(credential, {
-    expectedProtocol: 'openid4vp',
-    expectedTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
-    trustedIssuers: ['trusted-issuer.com']
+    trustFrameworks: ['uv']
   });
   
   if (verificationResult.verified) {
     console.log('Verification successful!');
-    console.log('ID Information:', verificationResult.idInformation);
+    console.log('Claims:', verificationResult.claims);
+    console.log('Issuer:', verificationResult.issuer);
   } else {
     console.error('Verification failed:', verificationResult.error);
   }

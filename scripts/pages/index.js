@@ -3,7 +3,7 @@ import {
     createRequestParams, 
     getCredentials, 
     verifyCredentials,
-    SupportedClaim,
+    Claim,
     DocumentType
 } from '../id-verifier.js';
 
@@ -83,36 +83,33 @@ class IndexPage {
     getClaimConfiguration() {
         const selectedClaims = [];
         
-        // Map of checkbox names to SupportedClaim values
+        // Map of checkbox names to Claim values
         const claimMapping = {
-            'givenName': SupportedClaim.GIVEN_NAME,
-            'familyName': SupportedClaim.FAMILY_NAME,
-            'birthDate': SupportedClaim.BIRTH_DATE,
-            'birthYear': SupportedClaim.BIRTH_YEAR,
-            'age': SupportedClaim.AGE,
-            'ageOver18': SupportedClaim.AGE_OVER_18,
-            'ageOver21': SupportedClaim.AGE_OVER_21,
-            'sex': SupportedClaim.SEX,
-            'height': SupportedClaim.HEIGHT,
-            'weight': SupportedClaim.WEIGHT,
-            'eyeColor': SupportedClaim.EYE_COLOR,
-            'hairColor': SupportedClaim.HAIR_COLOR,
-            'address': SupportedClaim.ADDRESS,
-            'city': SupportedClaim.CITY,
-            'state': SupportedClaim.STATE,
-            'postalCode': SupportedClaim.POSTAL_CODE,
-            'country': SupportedClaim.COUNTRY,
-            'nationality': SupportedClaim.NATIONALITY,
-            'placeOfBirth': SupportedClaim.PLACE_OF_BIRTH,
-            'documentNumber': SupportedClaim.DOCUMENT_NUMBER,
-            'issuingAuthority': SupportedClaim.ISSUING_AUTHORITY,
-            'issuingCountry': SupportedClaim.ISSUING_COUNTRY,
-            'issuingJurisdiction': SupportedClaim.ISSUING_JURISDICTION,
-            'issueDate': SupportedClaim.ISSUE_DATE,
-            'expiryDate': SupportedClaim.EXPIRY_DATE,
-            'drivingPrivileges': SupportedClaim.DRIVING_PRIVILEGES,
-            'portrait': SupportedClaim.PORTRAIT,
-            'signature': SupportedClaim.SIGNATURE
+            'givenName': Claim.GIVEN_NAME,
+            'familyName': Claim.FAMILY_NAME,
+            'birthDate': Claim.BIRTH_DATE,
+            'birthYear': Claim.BIRTH_YEAR,
+            'age': Claim.AGE,
+            'ageOver18': Claim.AGE_OVER_18,
+            'ageOver21': Claim.AGE_OVER_21,
+            'sex': Claim.SEX,
+            'height': Claim.HEIGHT,
+            'weight': Claim.WEIGHT,
+            'eyeColor': Claim.EYE_COLOR,
+            'hairColor': Claim.HAIR_COLOR,
+            'address': Claim.ADDRESS,
+            'city': Claim.CITY,
+            'state': Claim.STATE,
+            'postalCode': Claim.POSTAL_CODE,
+            'country': Claim.COUNTRY,
+            'nationality': Claim.NATIONALITY,
+            'placeOfBirth': Claim.PLACE_OF_BIRTH,
+            'documentNumber': Claim.DOCUMENT_NUMBER,
+            'issuingAuthority': Claim.ISSUING_AUTHORITY,
+            'expiryDate': Claim.EXPIRY_DATE,
+            'drivingPrivileges': Claim.DRIVING_PRIVILEGES,
+            'portrait': Claim.PORTRAIT,
+            'signature': Claim.SIGNATURE
         };
 
         // Check each claim checkbox
