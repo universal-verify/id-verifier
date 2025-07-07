@@ -35,12 +35,14 @@
     "url": "git+https://github.com/universal-verify/id-verifier.git"
   },
   "dependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "asn1js": "^3.0.6",
     "cbor2": "^2.0.1",
     "http-server": "^14.1.1",
     "pkijs": "^3.2.5",
-    "rollup": "^4.41.0"
+    "rollup": "^4.41.0",
+    "trusted-issuer-registry": "^0.0.2"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.0"

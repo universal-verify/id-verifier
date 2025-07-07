@@ -172,8 +172,9 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
 
         return {
             verified: true,
-            trusted: verificationResult.trusted,
             claims: verificationResult.claims,
+            trusted: verificationResult.trusted,
+            trustedIssuer: verificationResult.trustedIssuer,
         };
 
     } catch (error) {

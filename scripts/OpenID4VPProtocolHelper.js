@@ -63,7 +63,7 @@ class OpenID4VPProtocolHelper {
         const decodedTokens = [];
         const claims = {};
         const documents = [];
-        let trusted = true;
+        let issuer = true;
         for(let token of tokens) {
             //verify base64url-encoded CBOR data
             const decoded = await decodeVpToken(token);
@@ -74,16 +74,16 @@ class OpenID4VPProtocolHelper {
             documents.push(...decodedToken.documents);
         }
         for(let document of documents) {
-            let { claims: documentClaims, trusted: documentTrusted } = await verifyDocument(document);
-            trusted = trusted && documentTrusted;
+            let { claims: documentClaims, trustedIssuer: trustedIssuer } = await verifyDocument(document);
+            issuer = issuer && trustedIssuer;
             for(let key in documentClaims) {
                 claims[key] = documentClaims[key];
             }
         }
         return {
-            verified: true,
             claims: claims,
-            trusted: trusted,
+            trusted: !!issuer,
+            trustedIssuer: typeof issuer === 'object' ? issuer : null,
         };
     }
 }

@@ -1,25 +1,35 @@
-export const base64urlToBuffer = (base64url) => {
+/**
+ * Convert a base64 string to a Uint8Array
+ * @param {string} base64 - The base64 string
+ * @returns {Uint8Array} - The Uint8Array
+ */
+export const base64ToUint8Array = (base64) => {
+  if(typeof Buffer == 'function') {
+      return new Uint8Array(Buffer.from(base64, 'base64'));
+  } else if(typeof atob === 'function') {
+      const raw = atob(base64);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) {
+          bytes[i] = raw.charCodeAt(i);
+      }
+      return bytes;
+  } else {
+      throw new Error('No base64 decoder available in this environment');
+  }
+}
+
+/**
+ * Convert a base64url string to a Uint8Array
+ * @param {string} base64url - The base64url string
+ * @returns {Uint8Array} - The Uint8Array
+ */
+export const base64urlToUint8Array = (base64url) => {
     const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
     const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-
-    if (typeof atob === 'function') {
-        // Browser
-        const binary = atob(base64 + pad);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-           bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes;
-    } else if (typeof Buffer === 'function') {
-        // Node.js
-        return new Uint8Array(Buffer.from(base64 + pad, 'base64'));
-    } else {
-        throw new Error('No base64 decoder available in this environment');
-    }
-    
+    return base64ToUint8Array(base64 + pad);
 };
 
-export const bufferToBase64Url = (input) => {
+export const bufferToBase64 = (input) => {
     let bytes;
     if (input instanceof ArrayBuffer) {
       bytes = new Uint8Array(input);
@@ -34,9 +44,15 @@ export const bufferToBase64Url = (input) => {
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    let base64 = typeof btoa !== 'undefined'
-      ? btoa(binary)
-      : Buffer.from(binary, 'binary').toString('base64');
+    let base64 = typeof Buffer == 'function'
+      ? Buffer.from(binary, 'binary').toString('base64')
+      : btoa(binary);
+  
+    return base64;
+  }
+
+  export const bufferToBase64Url = (input) => {
+    let base64 = bufferToBase64(input);
   
     // Convert base64 to base64url
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

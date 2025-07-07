@@ -1,8 +1,14 @@
 import * as asn1js from 'asn1js';
 import { Certificate } from 'pkijs';
 import { CoseAlgToWebCrypto } from './constants.js';
-import { bufferToBase64Url } from './utils.js';
+import { bufferToBase64Url, base64ToUint8Array } from './utils.js';
+import { verifySignatureWithPem } from 'trusted-issuer-registry';
 
+/**
+ * Parse a X.509 chain into a PKIjs Certificate object
+ * @param {Array|Uint8Array} x5chain - The X.509 chain
+ * @returns {Certificate} - The parsed Certificate object
+ */
 export const parseX5Chain = (x5chain) => {
     if(x5chain instanceof Array) x5chain = x5chain[0];
     const arrayBuffer = x5chain.buffer.slice(x5chain.byteOffset, x5chain.byteOffset + x5chain.byteLength);
@@ -11,6 +17,11 @@ export const parseX5Chain = (x5chain) => {
     return cert;
 }
 
+/**
+ * Get the AuthorityKeyIdentifier from a X.509 certificate
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {string} - The AuthorityKeyIdentifier in base64url format
+ */
 export const getAuthorityKeyIdentifier = (x509Cert) => {
     const authorityKeyId = x509Cert.extensions?.find(ext => ext.extnID === '2.5.29.35');
     if (authorityKeyId) {
@@ -20,40 +31,26 @@ export const getAuthorityKeyIdentifier = (x509Cert) => {
                 return bufferToBase64Url(akidValue.result.valueBlock.value[0].valueBlock.valueHex);
             }
         } catch (e) {
-            console.log('Could not parse AuthorityKeyIdentifier value', e);
+            console.error('Could not parse AuthorityKeyIdentifier value', e);
         }
     }
     return null;
 }
 
-export const x509ToSpkiKey = async (x509Cert, coseAlg) => {
+/**
+ * Convert a X.509 certificate to a Web Crypto public key
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @param {string} coseAlg - The COSE algorithm
+ * @returns {Promise<CryptoKey>} - The Web Crypto public key
+ */
+export const x509ToWebCryptoKey = async (x509Cert, coseAlg) => {
     try {
         const publicKeyInfo = x509Cert.subjectPublicKeyInfo;
-        const publicKeyRaw = new Uint8Array(publicKeyInfo.subjectPublicKey.valueBlock.valueHex);
-        
-        // Use the COSE algorithm to determine the SPKI structure
-        const algorithmIdentifier = buildAlgorithmIdentifierForCose(coseAlg);
-        
-        // BIT STRING encoding: prepend 0x00 for "unused bits"
-        const bitString = new Uint8Array(publicKeyRaw.length + 1);
-        bitString[0] = 0x00;
-        bitString.set(publicKeyRaw, 1);
-        
-        // Full SPKI: SEQUENCE { algorithmIdentifier, BIT STRING { publicKey } }
-        // Calculate total length
-        const totalLen = algorithmIdentifier.length + bitString.length + 2; // 2 bytes for BIT STRING tag/len
-        const spki = new Uint8Array(totalLen + 2); // 2 bytes for SEQUENCE tag/len
-        spki[0] = 0x30; // SEQUENCE
-        spki[1] = totalLen;
-        spki.set(algorithmIdentifier, 2);
-        spki[2 + algorithmIdentifier.length] = 0x03; // BIT STRING
-        spki[3 + algorithmIdentifier.length] = bitString.length; // BIT STRING length
-        spki.set(bitString, 4 + algorithmIdentifier.length);
-
+        const spkiBytes = publicKeyInfo.toSchema().toBER();
         const webCryptoAlg = CoseAlgToWebCrypto[coseAlg];
         const certKey = await crypto.subtle.importKey(
             'spki',
-            spki,
+            spkiBytes,
             webCryptoAlg,
             false,
             ['verify']
@@ -66,75 +63,85 @@ export const x509ToSpkiKey = async (x509Cert, coseAlg) => {
     }
 }
 
-function buildAlgorithmIdentifierForCose(coseAlg) {
-    switch (coseAlg) {
-        case -7: // ES256 (ECDSA P-256)
-            return new Uint8Array([
-                0x30, 0x13, // SEQUENCE, length 19
-                0x06, 0x07, // OBJECT IDENTIFIER, length 7
-                0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01, // 1.2.840.10045.2.1 (ecPublicKey)
-                0x06, 0x08, // OBJECT IDENTIFIER, length 8
-                0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 // 1.2.840.10045.3.1.7 (P-256)
-            ]);
-        case -35: // ES384 (ECDSA P-384)
-            return new Uint8Array([
-                0x30, 0x13, // SEQUENCE, length 19
-                0x06, 0x07, // OBJECT IDENTIFIER, length 7
-                0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01, // 1.2.840.10045.2.1 (ecPublicKey)
-                0x06, 0x08, // OBJECT IDENTIFIER, length 8
-                0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x0B // 1.2.840.10045.3.1.11 (P-384)
-            ]);
-        case -36: // ES512 (ECDSA P-521)
-            return new Uint8Array([
-                0x30, 0x13, // SEQUENCE, length 19
-                0x06, 0x07, // OBJECT IDENTIFIER, length 7
-                0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01, // 1.2.840.10045.2.1 (ecPublicKey)
-                0x06, 0x08, // OBJECT IDENTIFIER, length 8
-                0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x0D // 1.2.840.10045.3.1.13 (P-521)
-            ]);
-        case -257: // RS256 (RSA PKCS#1 v1.5)
-            return new Uint8Array([
-                0x30, 0x0D, // SEQUENCE, length 13
-                0x06, 0x09, // OBJECT IDENTIFIER, length 9
-                0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, // 1.2.840.113549.1.1.1 (rsaEncryption)
-                0x05, 0x00 // NULL
-            ]);
-        case -258: // RS384 (RSA PKCS#1 v1.5)
-            return new Uint8Array([
-                0x30, 0x0D, // SEQUENCE, length 13
-                0x06, 0x09, // OBJECT IDENTIFIER, length 9
-                0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, // 1.2.840.113549.1.1.1 (rsaEncryption)
-                0x05, 0x00 // NULL
-            ]);
-        case -259: // RS512 (RSA PKCS#1 v1.5)
-            return new Uint8Array([
-                0x30, 0x0D, // SEQUENCE, length 13
-                0x06, 0x09, // OBJECT IDENTIFIER, length 9
-                0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, // 1.2.840.113549.1.1.1 (rsaEncryption)
-                0x05, 0x00 // NULL
-            ]);
-        case -37: // PS256 (RSA PSS)
-            return new Uint8Array([
-                0x30, 0x0D, // SEQUENCE, length 13
-                0x06, 0x09, // OBJECT IDENTIFIER, length 9
-                0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0A, // 1.2.840.113549.1.1.10 (rsassaPss)
-                0x05, 0x00 // NULL
-            ]);
-        case -38: // PS384 (RSA PSS)
-            return new Uint8Array([
-                0x30, 0x0D, // SEQUENCE, length 13
-                0x06, 0x09, // OBJECT IDENTIFIER, length 9
-                0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0A, // 1.2.840.113549.1.1.10 (rsassaPss)
-                0x05, 0x00 // NULL
-            ]);
-        case -39: // PS512 (RSA PSS)
-            return new Uint8Array([
-                0x30, 0x0D, // SEQUENCE, length 13
-                0x06, 0x09, // OBJECT IDENTIFIER, length 9
-                0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0A, // 1.2.840.113549.1.1.10 (rsassaPss)
-                0x05, 0x00 // NULL
-            ]);
-        default:
-            throw new Error(`Unsupported COSE algorithm: ${coseAlg}`);
+/**
+ * Convert a PKIjs Certificate object to a PEM certificate string
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {string} - The PEM certificate string
+ */
+export const certificateToPem = (x509Cert) => {
+    // Get the raw certificate bytes
+    const certBytes = x509Cert.toSchema().toBER();
+    const certArray = new Uint8Array(certBytes);
+    
+    // Convert to URL-safe base64 first, then convert to standard base64
+    const urlSafeBase64 = bufferToBase64Url(certArray);
+    const base64 = urlSafeBase64.replace(/-/g, '+').replace(/_/g, '/');
+    
+    // Add padding if needed
+    const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
+    const paddedBase64 = base64 + pad;
+    
+    // Format as PEM with 64-character lines and proper line endings
+    const pemLines = [];
+    for (let i = 0; i < paddedBase64.length; i += 64) {
+        pemLines.push(paddedBase64.slice(i, i + 64));
     }
+    
+    return `-----BEGIN CERTIFICATE-----\r\n${pemLines.join('\r\n')}\r\n-----END CERTIFICATE-----`;
+}
+
+/**
+ * Parse a PEM certificate string into a PKIjs Certificate object
+ * @param {string} pemString - The PEM certificate string
+ * @returns {Certificate} - The parsed Certificate object
+ */
+export const parsePemCertificate = (pemString) => {
+    const pemContent = pemString
+        .replace(/-----BEGIN CERTIFICATE-----/, '')
+        .replace(/-----END CERTIFICATE-----/, '')
+        .replace(/\s/g, '');
+    
+    const bytes = base64ToUint8Array(pemContent);
+    
+    const asn1 = asn1js.fromBER(bytes.buffer);
+    const cert = new Certificate({ schema: asn1.result });
+    return cert;
+}
+
+/**
+ * Validate a certificate against a list of issuer certificates in PEM format
+ * @param {Certificate} certificate - The certificate to validate
+ * @param {Array} issuerCertificates - The list of issuer certificates in PEM format
+ * @returns {Promise<boolean>} - True if the certificate is valid, false otherwise
+ */
+export const validateCertificateAgainstIssuer = async (certificate, issuerCertificates) => {
+    if (!issuerCertificates || !Array.isArray(issuerCertificates)) {
+        console.error('Unexpected input, no issuer certificates provided or not an array');
+        return false;
+    }
+
+    let signature, tbsBytes;
+    try {
+        signature = certificate.signatureValue.valueBlock.valueHex;
+        const tbsCertificate = certificate.tbsView; //TBS = To Be Signed (data to be signed)
+        tbsBytes = new Uint8Array(tbsCertificate);
+    } catch (error) {
+        console.error('Could not parse signature value from certificate', error);
+        return false;
+    }
+
+    
+    for (let i = 0; i < issuerCertificates.length; i++) {
+        const issuerCert = issuerCertificates[i];
+        try {
+            if (typeof issuerCert.certificate === 'string') {
+                const isValid = await verifySignatureWithPem(issuerCert.certificate, signature, tbsBytes);
+                if (isValid) return true;
+            }
+        } catch (error) {
+            continue;
+        }
+    }
+    
+    return false;
 }

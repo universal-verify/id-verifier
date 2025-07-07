@@ -1,12 +1,15 @@
 import * as cbor2 from 'cbor2';
+import TrustedIssuerRegistry from 'trusted-issuer-registry';
 import { CoseAlgToWebCrypto, REVERSE_CLAIM_MAPPINGS, CredentialFormat } from '../constants.js';
-import { parseX5Chain, x509ToSpkiKey, getAuthorityKeyIdentifier } from '../CertificateHelper.js';
+import { parseX5Chain, x509ToWebCryptoKey, getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from '../CertificateHelper.js';
 import { verifyCoseSign1 } from '../COSEHelper.js';
-import { base64urlToBuffer } from '../utils.js';
+import { base64urlToUint8Array } from '../utils.js';
+
+const registry = new TrustedIssuerRegistry({ useTestIssuers: true });
 
 export const decodeVpToken = async (vp_token) => {
-    const buffer = base64urlToBuffer(vp_token);
-    const decoded = await cbor2.decode(buffer);
+    const uint8Array = base64urlToUint8Array(vp_token);
+    const decoded = await cbor2.decode(uint8Array);
     return decoded;
 };
 
@@ -14,15 +17,17 @@ export const verifyDocument = async (document) => {
     const claims = {}
     const { docType, issuerSigned, deviceSigned } = document;
     const { issuerAuth, nameSpaces } = issuerSigned;
-    let { valid, issuerAuthPayload } = await verifyIssuerAuth(issuerAuth);
+    let { valid, issuerAuthPayload, certificate } = await verifyIssuerAuth(issuerAuth);
     if(!valid) throw new Error('Issuer certificate verification failed');
     for(let namespace in nameSpaces) {
         for(let claim of nameSpaces[namespace]) {
             await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
         }
     }
+    const trustedIssuer = await getIssuer(certificate);
     return {
         claims: claims,
+        trustedIssuer: trustedIssuer,
     }
 }
 
@@ -44,13 +49,11 @@ export const verifyIssuerAuth = async (issuerAuth) => {
     } else if(x5t) {
     } else if(x5u) {
     } else {
-        return false;
+        return { valid: false };
     }
 
-    const publicKey = await x509ToSpkiKey(certificate, alg);
+    const publicKey = await x509ToWebCryptoKey(certificate, alg);
     const signatureValid = await verifyCoseSign1(issuerAuth, publicKey, webCryptoAlg);
-
-    const akid = getAuthorityKeyIdentifier(certificate);
 
     return {
         certificate: certificate,
@@ -96,6 +99,25 @@ async function verifyClaim(namespace, claim, issuerAuthPayload) {
         isValid: uint8ArrayBytewiseEqual(sha256Uint8Array, digest),
         decodedClaim: decodedClaim
     };
+}
+
+async function getIssuer(certificate) {
+    try {
+        const aki = getAuthorityKeyIdentifier(certificate);
+        if(!aki) return null;
+        const issuer = await registry.getIssuerFromX509AKI(aki);
+        if(!issuer) return null;
+        
+        // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
+        if (await validateCertificateAgainstIssuer(certificate, issuer.certificates)) {
+            return issuer;
+        }
+        
+        return null;
+    } catch(error) {
+        console.error('Error getting issuer', error);
+        return null;
+    }
 }
 
 function uint8ArrayBytewiseEqual(a, b) {
