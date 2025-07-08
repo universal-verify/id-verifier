@@ -1,4 +1,4 @@
-import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings } from './constants.js';
+import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId } from './constants.js';
 import { decodeVpToken, verifyDocument } from './oid4vp/MDocHelper.js';
 
 class OpenID4VPProtocolHelper {
@@ -25,13 +25,9 @@ class OpenID4VPProtocolHelper {
                 if (formatClaims.length > 0) {
                     const credential = {
                         format,
-                        id: `cred_${format}`,
+                        id: createCredentialId(format, documentType),
                         claims: formatClaims,
                         meta: {},
-                        trusted_authorities: [{
-                            "type": "aki",
-                            "values": ["s9tIpPmhxdiuN"]
-                          }]
                     };
                     if(format === CredentialFormat.MSO_MDOC) {
                         //https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#appendix-B.2.3
@@ -53,8 +49,11 @@ class OpenID4VPProtocolHelper {
 
     async verify(credentialData, trustFrameworks) {
         let vpToken = credentialData.vp_token;
-        if(vpToken.cred_mso_mdoc) {
-            return this.verifyMsoMdoc(vpToken.cred_mso_mdoc, trustFrameworks);
+        for(let key in vpToken) {
+            if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
+                //TODO: Support response with multiple credentials in the future
+                return this.verifyMsoMdoc(vpToken[key], trustFrameworks);
+            }
         }
         throw new Error('Unsupported credential format');
     }

@@ -47,7 +47,7 @@ export const createRequestParams = (options = {}) => {
             credentials = OpenID4VPProtocolHelper.createQueryCredentials(types, claims);
         }
         if (credentials.length > 0) {
-            requests.push({
+            const protocolRequest = {
                 protocol,
                 data: {
                     dcql_query: {
@@ -57,7 +57,16 @@ export const createRequestParams = (options = {}) => {
                     response_mode: "dc_api",
                     response_type: "vp_token",
                 }
-            });
+            };
+            //Commented out for now as it doesn't seem to be supported by the browser yet
+            //if(credentials.length > 1) {
+            //    const credentialSetOptions = [];
+            //    for(const credential of credentials) {
+            //        credentialSetOptions.push([credential.id]);
+            //    }
+            //    protocolRequest.data.dcql_query.credential_sets = [{ "options": credentialSetOptions }];
+            //}
+            requests.push(protocolRequest);
         }
     }
 

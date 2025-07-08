@@ -81,6 +81,16 @@ async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
                 }
             }
         }
+    } else if(namespace === 'org.iso.23220.1') {
+        if(decodedClaim.elementIdentifier === 'birth_date' && claimValue.birth_date && claimValue.birth_date.tag === 1004) {
+            claimValue = claimValue.birth_date.contents;
+        } else if(decodedClaim.elementIdentifier === 'sex' && typeof claimValue === 'number') {
+            claimValue = claimValue === 1 ? 'M' : claimValue === 2 ? 'F' : null;
+        }
+    } else if(namespace === 'eu.europa.ec.eudi.pid.1') {
+        if(decodedClaim.elementIdentifier === 'sex' && typeof claimValue === 'number') {
+            claimValue = claimValue === 1 ? 'M' : claimValue === 2 ? 'F' : null;
+        }
     }
     let claimIdentifier = decodedClaim.elementIdentifier;
     let reverseClaimMapping = REVERSE_CLAIM_MAPPINGS[CredentialFormat.MSO_MDOC][docType][claimIdentifier];

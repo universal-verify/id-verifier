@@ -2,7 +2,7 @@
  * Supported document types for common identification documents
  */
 export const DocumentType = {
-    PHOTO_ID: 'org.iso.23220.photoid.1',
+    PHOTO_ID: 'org.iso.23220.photoID.1',
     EU_PERSONAL_ID: 'eu.europa.ec.eudi.pid.1',
     JAPAN_MY_NUMBER_CARD: 'org.iso.23220.1.jp.mnc',
     MOBILE_DRIVERS_LICENSE: 'org.iso.18013.5.1.mDL',
@@ -29,6 +29,18 @@ export const CredentialFormat = {
 export const ProtocolFormats = {
     [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC, CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
     [Protocol.MDOC]: [CredentialFormat.MSO_MDOC]
+}
+
+export const createCredentialId = (format, documentType) => {
+    //replace all non-alphanumeric characters with an underscore
+    return `cred-${format.replace(/[^a-zA-Z0-9]/g, '_')}-${documentType.replace(/[^a-zA-Z0-9]/g, '_')}`;
+}
+
+export const CredentialId = {
+    'cred-mso_mdoc-org_iso_23220_photoID_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.PHOTO_ID },
+    'cred-mso_mdoc-eu_europa_ec_eudi_pid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.EU_PERSONAL_ID },
+    'cred-mso_mdoc-org_iso_23220_1_jp_mnc': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.JAPAN_MY_NUMBER_CARD },
+    'cred-mso_mdoc-org_iso_18013_5_1_mDL': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.MOBILE_DRIVERS_LICENSE },
 }
 
 /**
@@ -67,6 +79,96 @@ export const Claim = {
 
 export const ClaimMappings = {
     [CredentialFormat.MSO_MDOC]: {
+        [DocumentType.PHOTO_ID]: {
+            [Claim.GIVEN_NAME]: ['org.iso.23220.1', 'given_name_unicode'],
+            [Claim.FAMILY_NAME]: ['org.iso.23220.1', 'family_name_unicode'],
+            [Claim.BIRTH_DATE]: ['org.iso.23220.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['org.iso.23220.1', 'age_birth_year'],
+            [Claim.AGE]: ['org.iso.23220.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['org.iso.23220.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['org.iso.23220.1', 'age_over_21'],
+            //[Claim.HEIGHT]: ['', ''],
+            //[Claim.WEIGHT]: ['', ''],
+            //[Claim.EYE_COLOR]: ['', ''],
+            //[Claim.HAIR_COLOR]: ['', ''],
+            [Claim.ADDRESS]: ['org.iso.23220.1', 'resident_address_unicode'],
+            [Claim.CITY]: ['org.iso.23220.1', 'resident_city_unicode'],
+            [Claim.STATE]: ['org.iso.23220.photoID.1', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['org.iso.23220.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['org.iso.23220.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['org.iso.23220.1', 'nationality'],
+            [Claim.SEX]: ['org.iso.23220.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['org.iso.23220.1', 'birthplace'],
+            [Claim.DOCUMENT_NUMBER]: ['org.iso.23220.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['org.iso.23220.1', 'issuing_authority_unicode'],
+            [Claim.ISSUING_COUNTRY]: ['org.iso.23220.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['org.iso.23220.1', 'issuing_subdivision'],
+            [Claim.ISSUE_DATE]: ['org.iso.23220.1', 'issue_date'],
+            [Claim.EXPIRY_DATE]: ['org.iso.23220.1', 'expiry_date'],
+            //[Claim.DRIVING_PRIVILEGES]: ['', ''],
+            [Claim.PORTRAIT]: ['org.iso.23220.1', 'portrait'],
+            //[Claim.SIGNATURE]: ['', '']
+        },
+        [DocumentType.EU_PERSONAL_ID]: {
+            [Claim.GIVEN_NAME]: ['eu.europa.ec.eudi.pid.1', 'given_name'],
+            [Claim.FAMILY_NAME]: ['eu.europa.ec.eudi.pid.1', 'family_name'],
+            [Claim.BIRTH_DATE]: ['eu.europa.ec.eudi.pid.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['eu.europa.ec.eudi.pid.1', 'age_birth_year'],
+            [Claim.AGE]: ['eu.europa.ec.eudi.pid.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['eu.europa.ec.eudi.pid.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['eu.europa.ec.eudi.pid.1', 'age_over_21'],
+            //[Claim.HEIGHT]: ['', 'height'],
+            //[Claim.WEIGHT]: ['', 'weight'],
+            //[Claim.EYE_COLOR]: ['', 'eye_colour'],
+            //[Claim.HAIR_COLOR]: ['', 'hair_colour'],
+            [Claim.ADDRESS]: ['eu.europa.ec.eudi.pid.1', 'resident_address'],
+            [Claim.CITY]: ['eu.europa.ec.eudi.pid.1', 'resident_city'],
+            [Claim.STATE]: ['eu.europa.ec.eudi.pid.1', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['eu.europa.ec.eudi.pid.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['eu.europa.ec.eudi.pid.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['eu.europa.ec.eudi.pid.1', 'nationality'],
+            [Claim.SEX]: ['eu.europa.ec.eudi.pid.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['eu.europa.ec.eudi.pid.1', 'birth_place'],
+            [Claim.DOCUMENT_NUMBER]: ['eu.europa.ec.eudi.pid.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['eu.europa.ec.eudi.pid.1', 'issuing_authority'],
+            [Claim.ISSUING_COUNTRY]: ['eu.europa.ec.eudi.pid.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['eu.europa.ec.eudi.pid.1', 'issuing_jurisdiction'],
+            [Claim.ISSUE_DATE]: ['eu.europa.ec.eudi.pid.1', 'issuance_date'],
+            [Claim.EXPIRY_DATE]: ['eu.europa.ec.eudi.pid.1', 'expiry_date'],
+            //[Claim.DRIVING_PRIVILEGES]: ['', 'driving_privileges'],
+            [Claim.PORTRAIT]: ['eu.europa.ec.eudi.pid.1', 'portrait'],
+            //[Claim.SIGNATURE]: ['', 'signature_usual_mark']
+        },
+        [DocumentType.JAPAN_MY_NUMBER_CARD]: {
+            [Claim.GIVEN_NAME]: ['org.iso.23220.1', 'given_name_unicode'],
+            [Claim.FAMILY_NAME]: ['org.iso.23220.1', 'family_name_unicode'],
+            [Claim.BIRTH_DATE]: ['org.iso.23220.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['org.iso.23220.1', 'age_birth_year'],
+            [Claim.AGE]: ['org.iso.23220.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['org.iso.23220.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['org.iso.23220.1', 'age_over_21'],
+            //[Claim.HEIGHT]: ['', ''],
+            //[Claim.WEIGHT]: ['', ''],
+            //[Claim.EYE_COLOR]: ['', ''],
+            //[Claim.HAIR_COLOR]: ['', ''],
+            [Claim.ADDRESS]: ['org.iso.23220.1.jp', 'resident_address_unicode'],
+            [Claim.CITY]: ['org.iso.23220.1', 'resident_city_unicode'],
+            //[Claim.STATE]: ['', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['org.iso.23220.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['org.iso.23220.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['org.iso.23220.1', 'nationality'],
+            [Claim.SEX]: ['org.iso.23220.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['org.iso.23220.1', 'birthplace'],
+            [Claim.DOCUMENT_NUMBER]: ['org.iso.23220.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['org.iso.23220.1', 'issuing_authority_unicode'],
+            [Claim.ISSUING_COUNTRY]: ['org.iso.23220.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['org.iso.23220.1', 'issuing_subdivision'],
+            [Claim.ISSUE_DATE]: ['org.iso.23220.1', 'issue_date'],
+            [Claim.EXPIRY_DATE]: ['org.iso.23220.1', 'expiry_date'],
+            //[Claim.DRIVING_PRIVILEGES]: ['', ''],
+            [Claim.PORTRAIT]: ['org.iso.23220.1', 'portrait'],
+            //[Claim.SIGNATURE]: ['', '']
+        },
         [DocumentType.MOBILE_DRIVERS_LICENSE]: {
             [Claim.GIVEN_NAME]: ['org.iso.18013.5.1', 'given_name'],
             [Claim.FAMILY_NAME]: ['org.iso.18013.5.1', 'family_name'],
