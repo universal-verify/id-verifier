@@ -7,6 +7,7 @@
   "author": "kalegd",
   "type": "module",
   "main": "build/id-verifier.min.js",
+  "funding": "https://github.com/sponsors/kalegd",
   "scripts": {
     "build": "rollup -c --bundleConfigAsCjs",
     "start": "http-server -c-1 -p 8000",
