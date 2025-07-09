@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Help and Support
+    url: https://github.com/universal-verify/id-verifier/discussions
+    about: Please use the Discussions tab if you have any questions or need help.
