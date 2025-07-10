@@ -2,7 +2,7 @@ import * as cbor2 from 'cbor2';
 import TrustedIssuerRegistry from 'trusted-issuer-registry';
 import { CoseAlgToWebCrypto, REVERSE_CLAIM_MAPPINGS, CredentialFormat } from '../constants.js';
 import { parseX5Chain, x509ToWebCryptoKey, getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from '../CertificateHelper.js';
-import { verifyCoseSign1 } from '../COSEHelper.js';
+import { verifyCoseSign1, coseKeyToWebCryptoKey } from '../COSEHelper.js';
 import { base64urlToUint8Array } from '../utils.js';
 
 const registry = new TrustedIssuerRegistry({ useTestIssuers: true });
@@ -13,12 +13,18 @@ export const decodeVpToken = async (vp_token) => {
     return decoded;
 };
 
-export const verifyDocument = async (document) => {
+export const verifyDocument = async (document, sessionTranscript) => {
     const claims = {}
     const { docType, issuerSigned, deviceSigned } = document;
     const { issuerAuth, nameSpaces } = issuerSigned;
     let { valid, issuerAuthPayload, certificate } = await verifyIssuerAuth(issuerAuth);
     if(!valid) throw new Error('Issuer certificate verification failed');
+    if(sessionTranscript) {
+        valid = await verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript);
+        if(!valid) throw new Error('Failed to verify device authentication');
+    } else {
+        console.warn("Skipping deviceAuth verification, likely due to missing origin and/or nonce in verifyCredentials call");
+    }
     for(let namespace in nameSpaces) {
         for(let claim of nameSpaces[namespace]) {
             await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
@@ -31,12 +37,18 @@ export const verifyDocument = async (document) => {
     }
 }
 
-export const verifyIssuerAuth = async (issuerAuth) => {
+async function verifyIssuerAuth(issuerAuth) {
     const [protectedHeadersRaw, unprotectedHeaders, payloadRaw, signatureRaw] = issuerAuth;
     const protectedHeaders = await cbor2.decode(protectedHeadersRaw);
     const payload = await cbor2.decode(payloadRaw);
-    const alg = protectedHeaders.get(1);
-    const webCryptoAlg = CoseAlgToWebCrypto[alg];
+    const issuerAuthPayload = cbor2.decode(payload.contents); //This is the Mobile Security Object (MSO)
+    let now = new Date();
+    if(new Date(issuerAuthPayload.validityInfo.validFrom) > now) {
+        throw new Error('Credential is not yet valid');
+    } else if(new Date(issuerAuthPayload.validityInfo.validUntil) < now) {
+        throw new Error('Credential is expired');
+    }
+    const coseAlg = protectedHeaders.get(1);
     //https://datatracker.ietf.org/doc/rfc9360/
     let x5bag = unprotectedHeaders.get(32);
     let x5chain = unprotectedHeaders.get(33);
@@ -52,15 +64,27 @@ export const verifyIssuerAuth = async (issuerAuth) => {
         return { valid: false };
     }
 
-    const publicKey = await x509ToWebCryptoKey(certificate, alg);
-    const signatureValid = await verifyCoseSign1(issuerAuth, publicKey, webCryptoAlg);
+    const publicKey = await x509ToWebCryptoKey(certificate, coseAlg);
+    const signatureValid = await verifyCoseSign1(issuerAuth, publicKey);
 
     return {
         certificate: certificate,
-        issuerAuthPayload: cbor2.decode(payload.contents),
+        issuerAuthPayload: issuerAuthPayload,
         publicKey: publicKey,
         valid: signatureValid,
     };
+}
+
+async function verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript) {
+    const { deviceAuth, nameSpaces } = deviceSigned;
+    const { deviceSignature } = deviceAuth;
+    const { deviceKeyInfo, docType } = issuerAuthPayload;
+    const deviceKey = await coseKeyToWebCryptoKey(deviceKeyInfo.deviceKey);
+    const deviceAuthentication = cbor2.encode(['DeviceAuthentication', cbor2.decode(sessionTranscript), docType, nameSpaces]);
+    const encodedDeviceAuthentication = cbor2.encode(new cbor2.Tag(24, deviceAuthentication));
+    //console.log('encodedDeviceAuthentication as hex', Array.from(encodedDeviceAuthentication).map(b => b.toString(16).padStart(2, '0')).join(''));
+    const signatureValid = await verifyCoseSign1([deviceSignature[0], deviceSignature[1], encodedDeviceAuthentication, deviceSignature[3]], deviceKey);
+    return signatureValid;
 }
 
 async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {

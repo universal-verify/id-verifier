@@ -12,7 +12,7 @@
     "build": "rollup -c --bundleConfigAsCjs",
     "start": "http-server -c-1 -p 8000",
     "start-ssl": "http-server -S -C ssl/cert.pem -K ssl/key.pem -c-1 -p 8000",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "build:css": "tailwindcss -i ./styles/input.css -o ./styles/main.css --minify",
     "watch:css": "tailwindcss -i ./styles/input.css -o ./styles/main.css --watch"
   },

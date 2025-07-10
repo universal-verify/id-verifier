@@ -11,14 +11,16 @@ import OpenID4VPProtocolHelper from './OpenID4VPProtocolHelper.js';
  * Used by backend services to generate credential request options
  * 
  * @param {Object} options - Configuration options
- * @param {string|Array<string>} options.documentTypes - Type(s) of documents to request
+ * @param {Array<string>} options.documentTypes - Type(s) of documents to request
  * @param {Array<string>} options.claims - Array of Claim enum values to request
+ * @param {string} options.nonce - Security nonce to use in the request
  * @returns {Object} Request parameters compatible with Digital Credentials API
  */
 export const createRequestParams = (options = {}) => {
     const {
+        nonce = generateNonce(),
         documentTypes = [DocumentType.MOBILE_DRIVERS_LICENSE],
-        claims = []
+        claims = [],
     } = options;
 
     // Normalize credential types to array
@@ -53,7 +55,7 @@ export const createRequestParams = (options = {}) => {
                     dcql_query: {
                         credentials
                     },
-                    nonce: generateNonce(),
+                    nonce: nonce,
                     response_mode: "dc_api",
                     response_type: "vp_token",
                 }
@@ -147,11 +149,15 @@ export const getCredentials = async (requestParams, options = {}) => {
  * @param {Object} credentialResponse - The credential response from getCredentials
  * @param {Object} options - Verification options
  * @param {Array<string>} options.trustFrameworks - List of trust frameworks to use for determining trust. Defaults to ['uv']
+ * @param {string} options.origin - The origin of the request (for session transcript generation)
+ * @param {string} options.nonce - The nonce from the original request (for session transcript generation)
  * @returns {Promise<Object>} Promise that resolves to verified credential information
  */
 export const verifyCredentials = async (credentialResponse, options = {}) => {
     const {
-        trustFrameworks = ['uv']
+        trustFrameworks = ['uv'],
+        origin = null,
+        nonce = null
     } = options;
 
     try {
@@ -169,7 +175,7 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
 
         let verificationResult;
         if(credentialResponse.protocol === Protocol.OPENID4VP) {
-            verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, trustFrameworks);
+            verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, trustFrameworks, origin, nonce);
         } else {
             throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
         }
@@ -193,9 +199,9 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
 
 /**
  * Helper function to generate a nonce for request security
- * @private
+ * @returns {string} Nonce with 128 bits of entropy
  */
-const generateNonce = () => {
+export const generateNonce = () => {
     const array = new Uint8Array(16);
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
         crypto.getRandomValues(array);

@@ -1,5 +1,6 @@
 import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId } from './constants.js';
 import { decodeVpToken, verifyDocument } from './oid4vp/MDocHelper.js';
+import { generateSessionTranscript } from './utils.js';
 
 class OpenID4VPProtocolHelper {
     constructor() {
@@ -47,22 +48,29 @@ class OpenID4VPProtocolHelper {
         return credentials;
     }
 
-    async verify(credentialData, trustFrameworks) {
+    async verify(credentialData, trustFrameworks, origin, nonce) {
         let vpToken = credentialData.vp_token;
         for(let key in vpToken) {
             if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
                 //TODO: Support response with multiple credentials in the future
-                return this.verifyMsoMdoc(vpToken[key], trustFrameworks);
+                return this.verifyMsoMdoc(vpToken[key], trustFrameworks, origin, nonce);
             }
         }
         throw new Error('Unsupported credential format');
     }
 
-    async verifyMsoMdoc(tokens, trustFrameworks) {
+    async verifyMsoMdoc(tokens, trustFrameworks, origin, nonce) {
         const decodedTokens = [];
         const claims = {};
         const documents = [];
         let issuer = true;
+        
+        // Generate session transcript if origin and nonce are provided
+        let sessionTranscript;
+        if (origin && nonce) {
+            sessionTranscript = await generateSessionTranscript(origin, nonce);
+        }
+        
         for(let token of tokens) {
             //verify base64url-encoded CBOR data
             const decoded = await decodeVpToken(token);
@@ -73,7 +81,7 @@ class OpenID4VPProtocolHelper {
             documents.push(...decodedToken.documents);
         }
         for(let document of documents) {
-            let { claims: documentClaims, trustedIssuer: trustedIssuer } = await verifyDocument(document);
+            let { claims: documentClaims, trustedIssuer: trustedIssuer } = await verifyDocument(document, sessionTranscript);
             issuer = issuer && trustedIssuer;
             for(let key in documentClaims) {
                 claims[key] = documentClaims[key];

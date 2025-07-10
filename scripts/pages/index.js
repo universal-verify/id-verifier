@@ -1,6 +1,7 @@
 // Import the library
 import { 
     createRequestParams, 
+    generateNonce,
     getCredentials, 
     verifyCredentials,
     Claim,
@@ -205,10 +206,14 @@ class IndexPage {
             console.log('Selected claims:', claims);
             console.log('Selected document types:', documentTypes);
 
+            const nonce = generateNonce();
+            const origin = window.location.origin;
+
             // Create request parameters using the user's configuration
             const requestParams = createRequestParams({
                 documentTypes,
-                claims
+                claims,
+                nonce,
             });
             console.log('Request parameters:', JSON.stringify(requestParams, null, 2));
 
@@ -220,7 +225,7 @@ class IndexPage {
                 JSON.stringify(credential, null, 2), 'success');
             
             // Verify the credential
-            const verified = await verifyCredentials(credential);
+            const verified = await verifyCredentials(credential, { nonce, origin });
             console.log('Credential verified:', verified);
 
             this.showResult('✅ Credential verified successfully!\n\n' + 

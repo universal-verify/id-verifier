@@ -227,4 +227,33 @@ export const CoseAlgToWebCrypto = {
     [-257]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },                // RS256
     [-258]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' },                // RS384
     [-259]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-512' }                 // RS512
-  };
+};
+
+export const CoseKtyMap = {
+    1: "OKP",
+    2: "EC",
+    3: "RSA"
+};
+
+export const CoseCrvMap = {
+    // EC2 Curves
+    1: "P-256",
+    2: "P-384",
+    3: "P-521",
+    // OKP Curves
+    6: "Ed25519",
+    7: "Ed448",
+    8: "X25519",
+    9: "X448"
+};
+
+export const CoseKeyAlgoMap = {
+    "EC-P-256": { name: "ECDSA", namedCurve: "P-256" },
+    "EC-P-384": { name: "ECDSA", namedCurve: "P-384" },
+    "EC-P-521": { name: "ECDSA", namedCurve: "P-521" },
+    "OKP-Ed25519": { name: "Ed25519" },
+    "OKP-Ed448": { name: "Ed448" },
+    "OKP-X25519": { name: "ECDH" },
+    "OKP-X448": { name: "ECDH" },
+    "RSA": { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+};
