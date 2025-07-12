@@ -10,6 +10,8 @@
   "funding": "https://github.com/sponsors/kalegd",
   "scripts": {
     "build": "rollup -c --bundleConfigAsCjs",
+    "lint": "eslint ./scripts --ext .js",
+    "lint-fix": "eslint ./scripts --ext .js --fix",
     "start": "http-server -c-1 -p 8000",
     "start-ssl": "http-server -S -C ssl/cert.pem -K ssl/key.pem -c-1 -p 8000",
     "test": "node --test",
@@ -36,16 +38,19 @@
     "url": "git+https://github.com/universal-verify/id-verifier.git"
   },
   "dependencies": {
-    "@rollup/plugin-node-resolve": "^16.0.1",
-    "@rollup/plugin-terser": "^0.4.4",
     "asn1js": "^3.0.6",
     "cbor2": "^2.0.1",
     "http-server": "^14.1.1",
     "pkijs": "^3.2.5",
-    "rollup": "^4.41.0",
     "trusted-issuer-registry": "^0.0.2"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.0"
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@stylistic/eslint-plugin": "^5.1.0",
+    "eslint": "^9.31.0",
+    "globals": "^16.3.0",
+    "tailwindcss": "^3.4.0",
+    "rollup": "^4.41.0"
   }
 }
