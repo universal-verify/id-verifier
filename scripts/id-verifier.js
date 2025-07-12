@@ -9,7 +9,7 @@ import OpenID4VPProtocolHelper from './OpenID4VPProtocolHelper.js';
 /**
  * Creates request parameters for digital credential verification
  * Used by backend services to generate credential request options
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {Array<string>} options.documentTypes - Type(s) of documents to request
  * @param {Array<string>} options.claims - Array of Claim enum values to request
@@ -56,8 +56,8 @@ export const createRequestParams = (options = {}) => {
                         credentials
                     },
                     nonce: nonce,
-                    response_mode: "dc_api",
-                    response_type: "vp_token",
+                    response_mode: 'dc_api',
+                    response_type: 'vp_token',
                 }
             };
             //Commented out for now as it doesn't seem to be supported by the browser yet
@@ -83,7 +83,7 @@ export const createRequestParams = (options = {}) => {
 /**
  * Requests digital credentials from the user
  * Used by frontend applications to initiate credential presentation
- * 
+ *
  * @param {Object} requestParams - Request parameters from createRequestParams
  * @param {Object} options - Additional options for the request
  * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
@@ -106,7 +106,7 @@ export const getCredentials = async (requestParams, options = {}) => {
         // Create the credential request options following the official spec
         const credentialRequestOptions = {
             ...requestParams,
-            mediation: "required",
+            mediation: 'required',
             signal: AbortSignal.timeout(timeout)
         };
 
@@ -145,7 +145,7 @@ export const getCredentials = async (requestParams, options = {}) => {
 /**
  * Verifies a digital credential response
  * Used by backend services to validate and extract information from credential responses
- * 
+ *
  * @param {Object} credentialResponse - The credential response from getCredentials
  * @param {Object} options - Verification options
  * @param {Array<string>} options.trustFrameworks - List of trust frameworks to use for determining trust. Defaults to ['uv']

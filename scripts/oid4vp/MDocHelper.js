@@ -1,6 +1,6 @@
 import * as cbor2 from 'cbor2';
 import TrustedIssuerRegistry from 'trusted-issuer-registry';
-import { CoseAlgToWebCrypto, REVERSE_CLAIM_MAPPINGS, CredentialFormat } from '../constants.js';
+import { REVERSE_CLAIM_MAPPINGS, CredentialFormat } from '../constants.js';
 import { parseX5Chain, x509ToWebCryptoKey, getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from '../CertificateHelper.js';
 import { verifyCoseSign1, coseKeyToWebCryptoKey } from '../COSEHelper.js';
 import { base64urlToUint8Array } from '../utils.js';
@@ -14,19 +14,19 @@ export const decodeVpToken = async (vp_token) => {
 };
 
 export const verifyDocument = async (document, sessionTranscript) => {
-    const claims = {}
+    const claims = {};
     const { docType, issuerSigned, deviceSigned } = document;
     const { issuerAuth, nameSpaces } = issuerSigned;
-    let { valid, issuerAuthPayload, certificate } = await verifyIssuerAuth(issuerAuth);
+    const { valid, issuerAuthPayload, certificate } = await verifyIssuerAuth(issuerAuth);
     if(!valid) throw new Error('Issuer certificate verification failed');
     if(sessionTranscript) {
-        valid = await verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript);
-        if(!valid) throw new Error('Failed to verify device authentication');
+        const deviceValid = await verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript);
+        if(!deviceValid) throw new Error('Failed to verify device authentication');
     } else {
-        console.warn("Skipping deviceAuth verification, likely due to missing origin and/or nonce in verifyCredentials call");
+        console.warn('Skipping deviceAuth verification, likely due to missing origin and/or nonce in verifyCredentials call');
     }
-    for(let namespace in nameSpaces) {
-        for(let claim of nameSpaces[namespace]) {
+    for(const namespace in nameSpaces) {
+        for(const claim of nameSpaces[namespace]) {
             await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
         }
     }
@@ -34,15 +34,15 @@ export const verifyDocument = async (document, sessionTranscript) => {
     return {
         claims: claims,
         trustedIssuer: trustedIssuer,
-    }
-}
+    };
+};
 
 async function verifyIssuerAuth(issuerAuth) {
-    const [protectedHeadersRaw, unprotectedHeaders, payloadRaw, signatureRaw] = issuerAuth;
+    const [protectedHeadersRaw, unprotectedHeaders, payloadRaw, _signatureRaw] = issuerAuth;
     const protectedHeaders = await cbor2.decode(protectedHeadersRaw);
     const payload = await cbor2.decode(payloadRaw);
     const issuerAuthPayload = cbor2.decode(payload.contents); //This is the Mobile Security Object (MSO)
-    let now = new Date();
+    const now = new Date();
     if(new Date(issuerAuthPayload.validityInfo.validFrom) > now) {
         throw new Error('Credential is not yet valid');
     } else if(new Date(issuerAuthPayload.validityInfo.validUntil) < now) {
@@ -50,10 +50,10 @@ async function verifyIssuerAuth(issuerAuth) {
     }
     const coseAlg = protectedHeaders.get(1);
     //https://datatracker.ietf.org/doc/rfc9360/
-    let x5bag = unprotectedHeaders.get(32);
-    let x5chain = unprotectedHeaders.get(33);
-    let x5t = unprotectedHeaders.get(34);
-    let x5u = unprotectedHeaders.get(35);
+    const x5bag = unprotectedHeaders.get(32);
+    const x5chain = unprotectedHeaders.get(33);
+    const x5t = unprotectedHeaders.get(34);
+    const x5u = unprotectedHeaders.get(35);
     let certificate;
     if(x5bag) {
     } else if(x5chain) {
@@ -88,7 +88,7 @@ async function verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscri
 }
 
 async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
-    let { isValid, decodedClaim } = await verifyClaim(namespace, claim, issuerAuthPayload);
+    const { isValid, decodedClaim } = await verifyClaim(namespace, claim, issuerAuthPayload);
     if(!isValid) throw new Error('Claim verification failed');
     let claimValue = decodedClaim.elementValue;
     if(claimValue.tag === 1004) {
@@ -97,8 +97,8 @@ async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
         if(decodedClaim.elementIdentifier === 'sex' && typeof claimValue === 'number') {
             claimValue = claimValue === 1 ? 'M' : claimValue === 2 ? 'F' : null;
         } else if(decodedClaim.elementIdentifier === 'driving_privileges' && claimValue && claimValue.length > 0) {
-            for(let privilege of claimValue) {
-                for(let key in privilege) {
+            for(const privilege of claimValue) {
+                for(const key in privilege) {
                     if(privilege[key]?.tag === 1004) {
                         privilege[key] = privilege[key].contents;
                     }
@@ -117,18 +117,18 @@ async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
         }
     }
     let claimIdentifier = decodedClaim.elementIdentifier;
-    let reverseClaimMapping = REVERSE_CLAIM_MAPPINGS[CredentialFormat.MSO_MDOC][docType][claimIdentifier];
+    const reverseClaimMapping = REVERSE_CLAIM_MAPPINGS[CredentialFormat.MSO_MDOC][docType][claimIdentifier];
     if(reverseClaimMapping) claimIdentifier = reverseClaimMapping;
     claims[claimIdentifier] = claimValue;
 }
 
 async function verifyClaim(namespace, claim, issuerAuthPayload) {
-    let decodedClaim = cbor2.decode(claim.contents);
-    let digestId = decodedClaim.digestID;
-    let digest = issuerAuthPayload.valueDigests[namespace].get(digestId);
-    let encodedClaim = cbor2.encode(claim);
-    let sha256 = await crypto.subtle.digest('SHA-256', encodedClaim);
-    let sha256Uint8Array = new Uint8Array(sha256);
+    const decodedClaim = cbor2.decode(claim.contents);
+    const digestId = decodedClaim.digestID;
+    const digest = issuerAuthPayload.valueDigests[namespace].get(digestId);
+    const encodedClaim = cbor2.encode(claim);
+    const sha256 = await crypto.subtle.digest('SHA-256', encodedClaim);
+    const sha256Uint8Array = new Uint8Array(sha256);
     return {
         isValid: uint8ArrayBytewiseEqual(sha256Uint8Array, digest),
         decodedClaim: decodedClaim
@@ -141,12 +141,12 @@ async function getIssuer(certificate) {
         if(!aki) return null;
         const issuer = await registry.getIssuerFromX509AKI(aki);
         if(!issuer) return null;
-        
+
         // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
         if (await validateCertificateAgainstIssuer(certificate, issuer.certificates)) {
             return issuer;
         }
-        
+
         return null;
     } catch(error) {
         console.error('Error getting issuer', error);

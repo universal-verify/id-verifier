@@ -15,7 +15,7 @@ export const parseX5Chain = (x5chain) => {
     const asn1 = asn1js.fromBER(arrayBuffer);
     const cert = new Certificate({ schema: asn1.result });
     return cert;
-}
+};
 
 /**
  * Get the AuthorityKeyIdentifier from a X.509 certificate
@@ -35,7 +35,7 @@ export const getAuthorityKeyIdentifier = (x509Cert) => {
         }
     }
     return null;
-}
+};
 
 /**
  * Convert a X.509 certificate to a Web Crypto public key
@@ -55,13 +55,13 @@ export const x509ToWebCryptoKey = async (x509Cert, coseAlg) => {
             false,
             ['verify']
         );
-        
+
         return certKey;
     } catch (error) {
         console.error('Error converting X.509 to SPKI:', error);
         throw error;
     }
-}
+};
 
 /**
  * Convert a PKIjs Certificate object to a PEM certificate string
@@ -72,23 +72,23 @@ export const certificateToPem = (x509Cert) => {
     // Get the raw certificate bytes
     const certBytes = x509Cert.toSchema().toBER();
     const certArray = new Uint8Array(certBytes);
-    
+
     // Convert to URL-safe base64 first, then convert to standard base64
     const urlSafeBase64 = bufferToBase64Url(certArray);
     const base64 = urlSafeBase64.replace(/-/g, '+').replace(/_/g, '/');
-    
+
     // Add padding if needed
     const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
     const paddedBase64 = base64 + pad;
-    
+
     // Format as PEM with 64-character lines and proper line endings
     const pemLines = [];
     for (let i = 0; i < paddedBase64.length; i += 64) {
         pemLines.push(paddedBase64.slice(i, i + 64));
     }
-    
+
     return `-----BEGIN CERTIFICATE-----\r\n${pemLines.join('\r\n')}\r\n-----END CERTIFICATE-----`;
-}
+};
 
 /**
  * Parse a PEM certificate string into a PKIjs Certificate object
@@ -100,13 +100,13 @@ export const parsePemCertificate = (pemString) => {
         .replace(/-----BEGIN CERTIFICATE-----/, '')
         .replace(/-----END CERTIFICATE-----/, '')
         .replace(/\s/g, '');
-    
+
     const bytes = base64ToUint8Array(pemContent);
-    
+
     const asn1 = asn1js.fromBER(bytes.buffer);
     const cert = new Certificate({ schema: asn1.result });
     return cert;
-}
+};
 
 /**
  * Validate a certificate against a list of issuer certificates in PEM format
@@ -130,7 +130,7 @@ export const validateCertificateAgainstIssuer = async (certificate, issuerCertif
         return false;
     }
 
-    
+
     for (let i = 0; i < issuerCertificates.length; i++) {
         const issuerCert = issuerCertificates[i];
         try {
@@ -142,6 +142,6 @@ export const validateCertificateAgainstIssuer = async (certificate, issuerCertif
             continue;
         }
     }
-    
+
     return false;
-}
+};

@@ -29,19 +29,19 @@ export const CredentialFormat = {
 export const ProtocolFormats = {
     [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC, CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
     [Protocol.MDOC]: [CredentialFormat.MSO_MDOC]
-}
+};
 
 export const createCredentialId = (format, documentType) => {
     //replace all non-alphanumeric characters with an underscore
     return `cred-${format.replace(/[^a-zA-Z0-9]/g, '_')}-${documentType.replace(/[^a-zA-Z0-9]/g, '_')}`;
-}
+};
 
 export const CredentialId = {
     'cred-mso_mdoc-org_iso_23220_photoID_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.PHOTO_ID },
     'cred-mso_mdoc-eu_europa_ec_eudi_pid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.EU_PERSONAL_ID },
     'cred-mso_mdoc-org_iso_23220_1_jp_mnc': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.JAPAN_MY_NUMBER_CARD },
     'cred-mso_mdoc-org_iso_18013_5_1_mDL': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.MOBILE_DRIVERS_LICENSE },
-}
+};
 
 /**
  * Supported claim fields that can be requested
@@ -203,11 +203,11 @@ export const ClaimMappings = {
 };
 
 export const REVERSE_CLAIM_MAPPINGS = {};
-for(let format in ClaimMappings) {
+for(const format in ClaimMappings) {
     REVERSE_CLAIM_MAPPINGS[format] = {};
-    for(let documentType in ClaimMappings[format]) {
+    for(const documentType in ClaimMappings[format]) {
         REVERSE_CLAIM_MAPPINGS[format][documentType] = {};
-        for(let claim in ClaimMappings[format][documentType]) {
+        for(const claim in ClaimMappings[format][documentType]) {
             let mappedValue = ClaimMappings[format][documentType][claim];
             mappedValue = mappedValue[mappedValue.length - 1];
             REVERSE_CLAIM_MAPPINGS[format][documentType][mappedValue] = claim;
@@ -219,41 +219,41 @@ export const CoseAlgToWebCrypto = {
     [-7]:   { name: 'ECDSA', hash: 'SHA-256', namedCurve: 'P-256' },       // ES256
     [-35]:  { name: 'ECDSA', hash: 'SHA-384', namedCurve: 'P-384' },       // ES384
     [-36]:  { name: 'ECDSA', hash: 'SHA-512', namedCurve: 'P-521' },       // ES512
-  
+
     [-37]:  { name: 'RSASSA-PSS', hash: 'SHA-256' },                       // PS256
     [-38]:  { name: 'RSASSA-PSS', hash: 'SHA-384' },                       // PS384
     [-39]:  { name: 'RSASSA-PSS', hash: 'SHA-512' },                       // PS512
-  
+
     [-257]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },                // RS256
     [-258]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' },                // RS384
     [-259]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-512' }                 // RS512
 };
 
 export const CoseKtyMap = {
-    1: "OKP",
-    2: "EC",
-    3: "RSA"
+    1: 'OKP',
+    2: 'EC',
+    3: 'RSA'
 };
 
 export const CoseCrvMap = {
     // EC2 Curves
-    1: "P-256",
-    2: "P-384",
-    3: "P-521",
+    1: 'P-256',
+    2: 'P-384',
+    3: 'P-521',
     // OKP Curves
-    6: "Ed25519",
-    7: "Ed448",
-    8: "X25519",
-    9: "X448"
+    6: 'Ed25519',
+    7: 'Ed448',
+    8: 'X25519',
+    9: 'X448'
 };
 
 export const CoseKeyAlgoMap = {
-    "EC-P-256": { name: "ECDSA", namedCurve: "P-256" },
-    "EC-P-384": { name: "ECDSA", namedCurve: "P-384" },
-    "EC-P-521": { name: "ECDSA", namedCurve: "P-521" },
-    "OKP-Ed25519": { name: "Ed25519" },
-    "OKP-Ed448": { name: "Ed448" },
-    "OKP-X25519": { name: "ECDH" },
-    "OKP-X448": { name: "ECDH" },
-    "RSA": { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    'EC-P-256': { name: 'ECDSA', namedCurve: 'P-256' },
+    'EC-P-384': { name: 'ECDSA', namedCurve: 'P-384' },
+    'EC-P-521': { name: 'ECDSA', namedCurve: 'P-521' },
+    'OKP-Ed25519': { name: 'Ed25519' },
+    'OKP-Ed448': { name: 'Ed448' },
+    'OKP-X25519': { name: 'ECDH' },
+    'OKP-X448': { name: 'ECDH' },
+    'RSA': { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
 };

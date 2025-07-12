@@ -22,7 +22,7 @@ export default defineConfig([
   	  		  "@stylistic/quotes": ["error", "single", { "avoidEscape": true }],
   	  		  "@stylistic/indent": ["error", 4, { "SwitchCase": 1 }],
   	  		  "no-trailing-spaces": "error",
-  	  		  "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "caughtErrors": "none" }],
+  	  		  "no-unused-vars": ["error", { "varsIgnorePattern": "^_", "caughtErrors": "none" }],
   	  		  "no-undef": "error",
   	  	},
 	  },

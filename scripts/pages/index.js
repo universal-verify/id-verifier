@@ -1,8 +1,8 @@
 // Import the library
-import { 
-    createRequestParams, 
+import {
+    createRequestParams,
     generateNonce,
-    getCredentials, 
+    getCredentials,
     verifyCredentials,
     Claim,
     DocumentType
@@ -13,7 +13,7 @@ class IndexPage {
         this.statusEl = null;
         this.requestBtn = null;
         this.resultEl = null;
-        
+
         this.setup();
     }
 
@@ -31,7 +31,7 @@ class IndexPage {
         if (this.requestBtn) {
             this.requestBtn.addEventListener('click', () => this.requestCredentials());
         }
-        
+
         // Add event listeners to checkboxes for live sample script updates
         this.setupCheckboxListeners();
     }
@@ -39,14 +39,14 @@ class IndexPage {
     setupCheckboxListeners() {
         // Get all checkboxes in the configuration section
         const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-        
+
         // Add change event listener to each checkbox
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', () => {
                 this.updateSampleScript();
             });
         });
-        
+
         // Initial update
         this.updateSampleScript();
     }
@@ -57,7 +57,7 @@ class IndexPage {
      */
     getDocumentTypeConfiguration() {
         const selectedDocumentTypes = [];
-        
+
         // Map of checkbox names to DocumentType values
         const documentTypeMapping = {
             'mobileDriversLicense': DocumentType.MOBILE_DRIVERS_LICENSE,
@@ -83,7 +83,7 @@ class IndexPage {
      */
     getClaimConfiguration() {
         const selectedClaims = [];
-        
+
         // Map of checkbox names to Claim values
         const claimMapping = {
             'givenName': Claim.GIVEN_NAME,
@@ -127,12 +127,12 @@ class IndexPage {
     updateSampleScript() {
         const claimsListElement = document.getElementById('claimsList');
         const documentTypesListElement = document.getElementById('documentTypesList');
-        
+
         if (!claimsListElement || !documentTypesListElement) return;
-        
+
         const claims = this.getClaimConfiguration();
         const documentTypes = this.getDocumentTypeConfiguration();
-        
+
         if (claims.length === 0) {
             claimsListElement.textContent = '// No claims selected';
         } else {
@@ -140,7 +140,7 @@ class IndexPage {
             const formattedClaims = claims.map(claim => `'${claim}'`).join(', ');
             claimsListElement.textContent = formattedClaims;
         }
-        
+
         if (documentTypes.length === 0) {
             documentTypesListElement.textContent = '// No document types selected';
         } else {
@@ -165,7 +165,7 @@ class IndexPage {
         if (!this.statusEl) return;
 
         this.statusEl.textContent = message;
-        
+
         const classes = {
             info: 'bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-4 mb-4',
             success: 'bg-green-50 border border-green-200 text-green-800 rounded-md p-4 mb-4',
@@ -184,7 +184,7 @@ class IndexPage {
 
         this.resultEl.style.display = 'block';
         this.resultEl.textContent = message;
-        
+
         const classes = {
             info: 'bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm overflow-x-auto text-nowrap',
             success: 'bg-green-50 border border-green-200 text-green-800 rounded-md p-4 mt-4 whitespace-pre-wrap font-mono text-sm overflow-x-auto text-nowrap',
@@ -202,7 +202,7 @@ class IndexPage {
             // Get the user's configuration
             const claims = this.getClaimConfiguration();
             const documentTypes = this.getDocumentTypeConfiguration();
-            
+
             console.log('Selected claims:', claims);
             console.log('Selected document types:', documentTypes);
 
@@ -221,14 +221,14 @@ class IndexPage {
             const credential = await getCredentials(requestParams);
             console.log('Credential:', credential);
 
-            this.showResult('✅ Credential received successfully!\n\n' + 
+            this.showResult('✅ Credential received successfully!\n\n' +
                 JSON.stringify(credential, null, 2), 'success');
-            
+
             // Verify the credential
             const verified = await verifyCredentials(credential, { nonce, origin });
             console.log('Credential verified:', verified);
 
-            this.showResult('✅ Credential verified successfully!\n\n' + 
+            this.showResult('✅ Credential verified successfully!\n\n' +
                 JSON.stringify(verified, null, 2), 'success');
 
         } catch (error) {
@@ -239,5 +239,5 @@ class IndexPage {
 }
 
 // Create and export the page instance
-let indexPage = new IndexPage();
+const indexPage = new IndexPage();
 export default indexPage;

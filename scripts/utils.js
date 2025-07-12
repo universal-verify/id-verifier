@@ -18,7 +18,7 @@ export const base64ToUint8Array = (base64) => {
     } else {
         throw new Error('No base64 decoder available in this environment');
     }
-}
+};
 
 /**
  * Convert a base64url string to a Uint8Array
@@ -40,45 +40,45 @@ export const bufferToBase64 = (input) => {
     } else if (input.buffer instanceof ArrayBuffer) {
         bytes = new Uint8Array(input.buffer).slice(input.byteOffset, input.byteOffset + input.byteLength);
     } else {
-        throw new Error("Invalid input type");
+        throw new Error('Invalid input type');
     }
-  
+
     // Convert to base64 string
     let binary = '';
     for (let i = 0; i < bytes.byteLength; i++) {
         binary += String.fromCharCode(bytes[i]);
     }
-    let base64 = typeof Buffer == 'function'
+    const base64 = typeof Buffer == 'function'
         ? Buffer.from(binary, 'binary').toString('base64')
         : btoa(binary);
-  
+
     return base64;
-}
+};
 
 export const bufferToBase64Url = (input) => {
-    let base64 = bufferToBase64(input);
-  
+    const base64 = bufferToBase64(input);
+
     // Convert base64 to base64url
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+};
 
 export const generateSessionTranscript = async (origin, nonce, jwkThumbprint = null) => {
     // Create OpenID4VPDCAPIHandoverInfo structure
     const handoverInfo = [origin, nonce, jwkThumbprint];
-    
+
     // Encode handoverInfo as CBOR
     const handoverInfoBytes = cbor2.encode(handoverInfo);
 
     // Calculate SHA-256 hash of the handoverInfoBytes
     const hashBuffer = await crypto.subtle.digest('SHA-256', handoverInfoBytes);
     const hashArray = new Uint8Array(hashBuffer);
-    
+
     // Create OpenID4VPDCAPIHandover structure
-    const handover = ["OpenID4VPDCAPIHandover", hashArray];
+    const handover = ['OpenID4VPDCAPIHandover', hashArray];
 
     // Create SessionTranscript structure
     // [DeviceEngagementBytes, EReaderKeyBytes, Handover]
     // For dc_api, DeviceEngagementBytes and EReaderKeyBytes MUST be null
     const sessionTranscript = cbor2.encode([null, null, handover]);
     return sessionTranscript;
-}
+};
