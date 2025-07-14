@@ -40,9 +40,8 @@
   "dependencies": {
     "asn1js": "^3.0.6",
     "cbor2": "^2.0.1",
-    "http-server": "^14.1.1",
     "pkijs": "^3.2.5",
-    "trusted-issuer-registry": "^0.0.2"
+    "trusted-issuer-registry": "^0.0.5"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
@@ -50,6 +49,7 @@
     "@stylistic/eslint-plugin": "^5.1.0",
     "eslint": "^9.31.0",
     "globals": "^16.3.0",
+    "http-server": "^14.1.1",
     "tailwindcss": "^3.4.0",
     "rollup": "^4.41.0"
   }

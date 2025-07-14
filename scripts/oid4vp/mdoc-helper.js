@@ -1,11 +1,9 @@
 import * as cbor2 from 'cbor2';
-import TrustedIssuerRegistry from 'trusted-issuer-registry';
+import { getIssuer } from '../trusted-issuer-registry-helper.js';
 import { REVERSE_CLAIM_MAPPINGS, CredentialFormat } from '../constants.js';
-import { parseX5Chain, x509ToWebCryptoKey, getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from '../CertificateHelper.js';
-import { verifyCoseSign1, coseKeyToWebCryptoKey } from '../COSEHelper.js';
+import { parseX5Chain, x509ToWebCryptoKey } from '../certificate-helper.js';
+import { verifyCoseSign1, coseKeyToWebCryptoKey } from '../cose-helper.js';
 import { base64urlToUint8Array } from '../utils.js';
-
-const registry = new TrustedIssuerRegistry({ useTestIssuers: true });
 
 export const decodeVpToken = async (vp_token) => {
     const uint8Array = base64urlToUint8Array(vp_token);
@@ -133,25 +131,6 @@ async function verifyClaim(namespace, claim, issuerAuthPayload) {
         isValid: uint8ArrayBytewiseEqual(sha256Uint8Array, digest),
         decodedClaim: decodedClaim
     };
-}
-
-async function getIssuer(certificate) {
-    try {
-        const aki = getAuthorityKeyIdentifier(certificate);
-        if(!aki) return null;
-        const issuer = await registry.getIssuerFromX509AKI(aki);
-        if(!issuer) return null;
-
-        // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
-        if (await validateCertificateAgainstIssuer(certificate, issuer.certificates)) {
-            return issuer;
-        }
-
-        return null;
-    } catch(error) {
-        console.error('Error getting issuer', error);
-        return null;
-    }
 }
 
 function uint8ArrayBytewiseEqual(a, b) {

@@ -1,5 +1,5 @@
 import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim } from './constants.js';
-import OpenID4VPProtocolHelper from './OpenID4VPProtocolHelper.js';
+import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
 
 /**
  * Digital Credentials API Wrapper

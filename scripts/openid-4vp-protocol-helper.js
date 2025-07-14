@@ -1,5 +1,5 @@
 import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId } from './constants.js';
-import { decodeVpToken, verifyDocument } from './oid4vp/MDocHelper.js';
+import { decodeVpToken, verifyDocument } from './oid4vp/mdoc-helper.js';
 import { generateSessionTranscript } from './utils.js';
 
 class OpenID4VPProtocolHelper {
