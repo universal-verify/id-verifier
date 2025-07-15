@@ -1,5 +1,6 @@
 import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim } from './constants.js';
 import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
+import MDOCProtocolHelper from './mdoc-protocol-helper.js';
 
 /**
  * Digital Credentials API Wrapper
@@ -44,32 +45,13 @@ export const createRequestParams = (options = {}) => {
     const requests = [];
 
     for (const protocol of Object.values(Protocol)) {
-        let credentials = [];
+        let request;
         if(protocol === Protocol.OPENID4VP) {
-            credentials = OpenID4VPProtocolHelper.createQueryCredentials(types, claims);
+            request = OpenID4VPProtocolHelper.createRequest(types, claims, nonce);
+        } else if(protocol === Protocol.MDOC) {
+            request = MDOCProtocolHelper.createRequest(types, claims);
         }
-        if (credentials.length > 0) {
-            const protocolRequest = {
-                protocol,
-                data: {
-                    dcql_query: {
-                        credentials
-                    },
-                    nonce: nonce,
-                    response_mode: 'dc_api',
-                    response_type: 'vp_token',
-                }
-            };
-            //Commented out for now as it doesn't seem to be supported by the browser yet
-            //if(credentials.length > 1) {
-            //    const credentialSetOptions = [];
-            //    for(const credential of credentials) {
-            //        credentialSetOptions.push([credential.id]);
-            //    }
-            //    protocolRequest.data.dcql_query.credential_sets = [{ "options": credentialSetOptions }];
-            //}
-            requests.push(protocolRequest);
-        }
+        if (request) requests.push(request);
     }
 
     // Return the Digital Credentials API compatible structure
@@ -101,6 +83,12 @@ export const getCredentials = async (requestParams, options = {}) => {
     if (!navigator.credentials) {
         throw new Error('Digital Credentials API not supported in this browser');
     }
+
+    //filter out requests that are not supported by the browser
+    requestParams.digital.requests = requestParams.digital.requests.filter(request => {
+        //TODO: Replace with navigator.credentials.userAgentAllowsProtocol(request.protocol) once the API is available
+        return request.protocol === Protocol.OPENID4VP;//navigator.credentials.userAgentAllowsProtocol(request.protocol);
+    });
 
     try {
         // Create the credential request options following the official spec
@@ -176,6 +164,8 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
         let verificationResult;
         if(credentialResponse.protocol === Protocol.OPENID4VP) {
             verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, trustFrameworks, origin, nonce);
+        } else if(credentialResponse.protocol === Protocol.MDOC) {
+            verificationResult = await MDOCProtocolHelper.verify(credentialData, trustFrameworks, origin, nonce);
         } else {
             throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
         }

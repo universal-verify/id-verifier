@@ -2,9 +2,9 @@ import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialI
 import { decodeVpToken, verifyDocument } from './oid4vp/mdoc-helper.js';
 import { generateSessionTranscript } from './utils.js';
 
-class OpenID4VPProtocolHelper {
+class MDOCProtocolHelper {
     constructor() {
-        this.protocol = Protocol.OPENID4VP;
+        this.protocol = Protocol.MDOC;
     }
 
     createRequest(documentTypes, claims, nonce) {
@@ -13,12 +13,9 @@ class OpenID4VPProtocolHelper {
             return {
                 protocol: this.protocol,
                 data: {
-                    dcql_query: {
-                        credentials
-                    },
+                    deviceRequest: {},
+                    encryptionInfo: '',
                     nonce: nonce,
-                    response_mode: 'dc_api',
-                    response_type: 'vp_token',
                 }
             };
         }
@@ -71,7 +68,7 @@ class OpenID4VPProtocolHelper {
         for(const key in vpToken) {
             if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
                 //TODO: Support response with multiple credentials in the future
-                return this.verifyMsoMdoc(vpToken[key], trustFrameworks, origin, nonce);
+                return this._verifyMsoMdoc(vpToken[key], trustFrameworks, origin, nonce);
             }
         }
         throw new Error('Unsupported credential format');
@@ -113,5 +110,5 @@ class OpenID4VPProtocolHelper {
     }
 }
 
-const openid4vpProtocolHelper = new OpenID4VPProtocolHelper();
-export default openid4vpProtocolHelper;
+const mdocProtocolHelper = new MDOCProtocolHelper();
+export default mdocProtocolHelper;

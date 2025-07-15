@@ -41,9 +41,9 @@ async function checkRegistryDeprecation() {
 
 function logEndOfLifeWarning() {
     if(endOfLifeDate.getTime() < Date.now()) {
-        console.warn(`trusted-issuer-registry minor version ${registry.version} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
+        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
     } else {
-        console.warn(`trusted-issuer-registry minor version ${registry.version} reaching end of life on ${endOfLifeDate.toISOString().split('T')[0]}, please update to the latest major/minor version before then to avoid outdated issuer information`);
+        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} reaching end of life on ${endOfLifeDate.toISOString().split('T')[0]}, please update to the latest major/minor version before then to avoid outdated issuer information`);
     }
     priorWarning = Date.now();
 }

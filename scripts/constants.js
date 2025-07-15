@@ -13,7 +13,7 @@ export const DocumentType = {
  */
 export const Protocol = {
     OPENID4VP: 'openid4vp-v1-unsigned',
-    //MDOC: 'org-iso-mdoc'
+    MDOC: 'org-iso-mdoc'
 };
 
 /**
