@@ -1,4 +1,14 @@
 /**
+ * Supported trust lists
+ */
+export const TrustList = {
+    UV: 'uv',
+    AAMVA_DTS: 'aamva_dts',
+};
+
+export const ALL_TRUST_LISTS = ['all_trust_lists'];
+
+/**
  * Supported document types for common identification documents
  */
 export const DocumentType = {

@@ -14,7 +14,10 @@ export const getIssuer = async (certificate) => {
         if(!issuer) return null;
 
         // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
-        if (await validateCertificateAgainstIssuer(certificate, issuer.certificates)) {
+        let matchedCertificate = await validateCertificateAgainstIssuer(certificate, issuer.certificates);
+        if (matchedCertificate) {
+            delete issuer.certificates;
+            issuer.certificate = matchedCertificate;
             return issuer;
         }
 

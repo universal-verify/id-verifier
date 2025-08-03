@@ -1,4 +1,4 @@
-import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId } from './constants.js';
+import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId, ALL_TRUST_LISTS } from './constants.js';
 import { decodeVpToken, verifyDocument } from './oid4vp/mdoc-helper.js';
 import { generateSessionTranscript } from './utils.js';
 
@@ -66,22 +66,23 @@ class OpenID4VPProtocolHelper {
         return credentials;
     }
 
-    async verify(credentialData, trustFrameworks, origin, nonce) {
+    async verify(credentialData, trustLists, origin, nonce) {
         const vpToken = credentialData.vp_token;
         for(const key in vpToken) {
             if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
                 //TODO: Support response with multiple credentials in the future
-                return this.verifyMsoMdoc(vpToken[key], trustFrameworks, origin, nonce);
+                return this._verifyMsoMdoc(vpToken[key], trustLists, origin, nonce);
             }
         }
         throw new Error('Unsupported credential format');
     }
 
-    async _verifyMsoMdoc(tokens, trustFrameworks, origin, nonce) {
+    async _verifyMsoMdoc(tokens, trustLists, origin, nonce) {
         const decodedTokens = [];
         const claims = {};
         const documents = [];
-        let issuer = true;
+        let trusted = true;
+        let issuers = [];
 
         // Generate session transcript if origin and nonce are provided
         let sessionTranscript;
@@ -100,15 +101,16 @@ class OpenID4VPProtocolHelper {
         }
         for(const document of documents) {
             const { claims: documentClaims, trustedIssuer: trustedIssuer } = await verifyDocument(document, sessionTranscript);
-            issuer = issuer && trustedIssuer;
+            if(trustedIssuer) issuers.push(trustedIssuer);
+            trusted = trusted && trustedIssuer && (trustLists == ALL_TRUST_LISTS || trustedIssuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
             }
         }
         return {
             claims: claims,
-            trusted: !!issuer && issuer.trust_frameworks.some(tf => trustFrameworks.includes(tf)),
-            issuer: typeof issuer === 'object' ? issuer : null,
+            trusted: trusted,
+            issuers: issuers,
         };
     }
 }

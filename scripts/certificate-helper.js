@@ -112,12 +112,12 @@ export const parsePemCertificate = (pemString) => {
  * Validate a certificate against a list of issuer certificates in PEM format
  * @param {Certificate} certificate - The certificate to validate
  * @param {Array} issuerCertificates - The list of issuer certificates in PEM format
- * @returns {Promise<boolean>} - True if the certificate is valid, false otherwise
+ * @returns {Promise<object>} - The issuer certificate object if the certificate is valid, null otherwise
  */
 export const validateCertificateAgainstIssuer = async (certificate, issuerCertificates) => {
     if (!issuerCertificates || !Array.isArray(issuerCertificates)) {
         console.error('Unexpected input, no issuer certificates provided or not an array');
-        return false;
+        return null;
     }
 
     let signature, tbsBytes;
@@ -127,21 +127,21 @@ export const validateCertificateAgainstIssuer = async (certificate, issuerCertif
         tbsBytes = new Uint8Array(tbsCertificate);
     } catch (error) {
         console.error('Could not parse signature value from certificate', error);
-        return false;
+        return null;
     }
 
 
     for (let i = 0; i < issuerCertificates.length; i++) {
         const issuerCert = issuerCertificates[i];
         try {
-            if (typeof issuerCert.certificate === 'string') {
-                const isValid = await verifySignatureWithPem(issuerCert.certificate, signature, tbsBytes);
-                if (isValid) return true;
+            if (typeof issuerCert.data === 'string') {
+                const isValid = await verifySignatureWithPem(issuerCert.data, signature, tbsBytes);
+                if (isValid) return issuerCert;
             }
         } catch (error) {
             continue;
         }
     }
 
-    return false;
+    return null;
 };

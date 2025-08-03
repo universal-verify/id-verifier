@@ -13,6 +13,7 @@ export const decodeVpToken = async (vp_token) => {
 
 export const verifyDocument = async (document, sessionTranscript) => {
     const claims = {};
+    const rawClaims = {};
     const { docType, issuerSigned, deviceSigned } = document;
     const { issuerAuth, nameSpaces } = issuerSigned;
     const { valid, issuerAuthPayload, certificate } = await verifyIssuerAuth(issuerAuth);
@@ -25,10 +26,11 @@ export const verifyDocument = async (document, sessionTranscript) => {
     }
     for(const namespace in nameSpaces) {
         for(const claim of nameSpaces[namespace]) {
-            await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
+            await setClaim(claims, rawClaims, docType, namespace, claim, issuerAuthPayload);
         }
     }
     const trustedIssuer = await getIssuer(certificate);
+    if(trustedIssuer) trustedIssuer.rawClaims = rawClaims;
     return {
         claims: claims,
         trustedIssuer: trustedIssuer,
@@ -85,16 +87,19 @@ async function verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscri
     return signatureValid;
 }
 
-async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
+async function setClaim(claims, rawClaims, docType, namespace, claim, issuerAuthPayload) {
     const { isValid, decodedClaim } = await verifyClaim(namespace, claim, issuerAuthPayload);
     if(!isValid) throw new Error('Claim verification failed');
+    let claimIdentifier = decodedClaim.elementIdentifier;
     let claimValue = decodedClaim.elementValue;
+    rawClaims[claimIdentifier] = claimValue;
     if(claimValue.tag === 1004) {
         claimValue = claimValue.contents;
     } else if(namespace === 'org.iso.18013.5.1') {
-        if(decodedClaim.elementIdentifier === 'sex' && typeof claimValue === 'number') {
+        if(claimIdentifier === 'sex' && typeof claimValue === 'number') {
             claimValue = claimValue === 1 ? 'M' : claimValue === 2 ? 'F' : null;
-        } else if(decodedClaim.elementIdentifier === 'driving_privileges' && claimValue && claimValue.length > 0) {
+        } else if(claimIdentifier === 'driving_privileges' && claimValue && claimValue.length > 0) {
+            claimValue = JSON.parse(JSON.stringify(claimValue));
             for(const privilege of claimValue) {
                 for(const key in privilege) {
                     if(privilege[key]?.tag === 1004) {
@@ -104,17 +109,16 @@ async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
             }
         }
     } else if(namespace === 'org.iso.23220.1') {
-        if(decodedClaim.elementIdentifier === 'birth_date' && claimValue.birth_date && claimValue.birth_date.tag === 1004) {
+        if(claimIdentifier === 'birth_date' && claimValue.birth_date && claimValue.birth_date.tag === 1004) {
             claimValue = claimValue.birth_date.contents;
-        } else if(decodedClaim.elementIdentifier === 'sex' && typeof claimValue === 'number') {
+        } else if(claimIdentifier === 'sex' && typeof claimValue === 'number') {
             claimValue = claimValue === 1 ? 'M' : claimValue === 2 ? 'F' : null;
         }
     } else if(namespace === 'eu.europa.ec.eudi.pid.1') {
-        if(decodedClaim.elementIdentifier === 'sex' && typeof claimValue === 'number') {
+        if(claimIdentifier === 'sex' && typeof claimValue === 'number') {
             claimValue = claimValue === 1 ? 'M' : claimValue === 2 ? 'F' : null;
         }
     }
-    let claimIdentifier = decodedClaim.elementIdentifier;
     const reverseClaimMapping = REVERSE_CLAIM_MAPPINGS[CredentialFormat.MSO_MDOC][docType][claimIdentifier];
     if(reverseClaimMapping) claimIdentifier = reverseClaimMapping;
     claims[claimIdentifier] = claimValue;

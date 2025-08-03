@@ -1,4 +1,4 @@
-import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim } from './constants.js';
+import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, ALL_TRUST_LISTS } from './constants.js';
 import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
 import MDOCProtocolHelper from './mdoc-protocol-helper.js';
 
@@ -136,14 +136,14 @@ export const getCredentials = async (requestParams, options = {}) => {
  *
  * @param {Object} credentialResponse - The credential response from getCredentials
  * @param {Object} options - Verification options
- * @param {Array<string>} options.trustFrameworks - List of trust frameworks to use for determining trust. Defaults to ['uv']
+ * @param {Array<string>} options.trustLists - Names of trust lists to use for determining trust. Defaults to all
  * @param {string} options.origin - The origin of the request (for session transcript generation)
  * @param {string} options.nonce - The nonce from the original request (for session transcript generation)
  * @returns {Promise<Object>} Promise that resolves to verified credential information
  */
 export const verifyCredentials = async (credentialResponse, options = {}) => {
     const {
-        trustFrameworks = ['uv'],
+        trustLists = ALL_TRUST_LISTS,
         origin = null,
         nonce = null
     } = options;
@@ -163,9 +163,9 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
 
         let verificationResult;
         if(credentialResponse.protocol === Protocol.OPENID4VP) {
-            verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, trustFrameworks, origin, nonce);
+            verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, trustLists, origin, nonce);
         } else if(credentialResponse.protocol === Protocol.MDOC) {
-            verificationResult = await MDOCProtocolHelper.verify(credentialData, trustFrameworks, origin, nonce);
+            verificationResult = await MDOCProtocolHelper.verify(credentialData, trustLists, origin, nonce);
         } else {
             throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
         }
@@ -174,7 +174,7 @@ export const verifyCredentials = async (credentialResponse, options = {}) => {
             verified: true,
             claims: verificationResult.claims,
             trusted: verificationResult.trusted,
-            issuer: verificationResult.issuer,
+            issuers: verificationResult.issuers,
         };
 
     } catch (error) {
