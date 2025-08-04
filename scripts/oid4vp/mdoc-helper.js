@@ -13,7 +13,6 @@ export const decodeVpToken = async (vp_token) => {
 
 export const verifyDocument = async (document, sessionTranscript) => {
     const claims = {};
-    const rawClaims = {};
     const { docType, issuerSigned, deviceSigned } = document;
     const { issuerAuth, nameSpaces } = issuerSigned;
     const { valid, issuerAuthPayload, certificate } = await verifyIssuerAuth(issuerAuth);
@@ -26,11 +25,10 @@ export const verifyDocument = async (document, sessionTranscript) => {
     }
     for(const namespace in nameSpaces) {
         for(const claim of nameSpaces[namespace]) {
-            await setClaim(claims, rawClaims, docType, namespace, claim, issuerAuthPayload);
+            await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
         }
     }
     const trustedIssuer = await getIssuer(certificate);
-    if(trustedIssuer) trustedIssuer.rawClaims = rawClaims;
     return {
         claims: claims,
         trustedIssuer: trustedIssuer,
@@ -87,12 +85,11 @@ async function verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscri
     return signatureValid;
 }
 
-async function setClaim(claims, rawClaims, docType, namespace, claim, issuerAuthPayload) {
+async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
     const { isValid, decodedClaim } = await verifyClaim(namespace, claim, issuerAuthPayload);
     if(!isValid) throw new Error('Claim verification failed');
     let claimIdentifier = decodedClaim.elementIdentifier;
     let claimValue = decodedClaim.elementValue;
-    rawClaims[claimIdentifier] = claimValue;
     if(claimValue.tag === 1004) {
         claimValue = claimValue.contents;
     } else if(namespace === 'org.iso.18013.5.1') {
