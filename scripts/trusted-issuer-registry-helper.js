@@ -2,8 +2,10 @@ import TrustedIssuerRegistry from 'trusted-issuer-registry';
 import { getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from './certificate-helper.js';
 
 const registry = new TrustedIssuerRegistry({ useTestData: true });
+const ONE_DAY = 24 * 60 * 60 * 1000;
 
 let endOfLifeDate, priorWarning;
+let priorCheck = 0;
 
 export const getIssuer = async (certificate) => {
     try {
@@ -30,8 +32,8 @@ export const getIssuer = async (certificate) => {
 
 async function checkRegistryDeprecation() {
     if(endOfLifeDate) {
-        if(priorWarning < Date.now() - 24 * 60 * 60 * 1000) logEndOfLifeWarning();
-    } else {
+        if(priorWarning < Date.now() - ONE_DAY) logEndOfLifeWarning();
+    } else if(priorCheck < Date.now() - ONE_DAY) {
         try {
             endOfLifeDate = await registry.getEndOfLifeDate();
         } catch(error) {
@@ -39,6 +41,7 @@ async function checkRegistryDeprecation() {
             console.error(error);
         }
         if(endOfLifeDate) logEndOfLifeWarning();
+        priorCheck = Date.now();
     }
 }
 
