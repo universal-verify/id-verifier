@@ -31,13 +31,13 @@ export const Protocol = {
  */
 export const CredentialFormat = {
     MSO_MDOC: 'mso_mdoc',
-    DC_SD_JWT: 'dc+sd-jwt',
-    LDP_VC: 'ldp_vc',
-    JWT_VC_JSON: 'jwt_vc_json'
+    //DC_SD_JWT: 'dc+sd-jwt',
+    //LDP_VC: 'ldp_vc',
+    //JWT_VC_JSON: 'jwt_vc_json'
 };
 
 export const ProtocolFormats = {
-    [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC, CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
+    [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC],//CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
     [Protocol.MDOC]: [CredentialFormat.MSO_MDOC]
 };
 

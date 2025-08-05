@@ -1,5 +1,5 @@
 import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId, ALL_TRUST_LISTS } from './constants.js';
-import { decodeVpToken, verifyDocument } from './oid4vp/mdoc-helper.js';
+import { decodeVpToken, verifyDocument } from './formats/mdoc-helper.js';
 import { generateSessionTranscript } from './utils.js';
 
 class OpenID4VPProtocolHelper {
@@ -82,7 +82,7 @@ class OpenID4VPProtocolHelper {
         const claims = {};
         const documents = [];
         let trusted = true;
-        let issuers = [];
+        const issuers = [];
 
         // Generate session transcript if origin and nonce are provided
         let sessionTranscript;

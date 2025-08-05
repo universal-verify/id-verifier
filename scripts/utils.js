@@ -62,6 +62,26 @@ export const bufferToBase64Url = (input) => {
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
+export const jwkToCoseKey = (jwk) => {
+    if (jwk.kty !== 'EC') {
+        throw new Error('Only EC keys supported at this time. Open a pull request if you need support for other key types.');
+    }
+    if (jwk.crv !== 'P-256') {
+        throw new Error('Only P-256 curve supported at this time. Open a pull request if you need support for other curves.');
+    }
+
+    const x = base64urlToUint8Array(jwk.x);
+    const y = base64urlToUint8Array(jwk.y);
+
+    const coseKey = new Map();
+    coseKey.set(1, 2);    // kty: EC2
+    coseKey.set(-1, 1);   // crv: P-256
+    coseKey.set(-2, x);   // x-coordinate
+    coseKey.set(-3, y);   // y-coordinate
+
+    return coseKey;
+};
+
 export const generateSessionTranscript = async (origin, nonce, jwkThumbprint = null) => {
     // Create OpenID4VPDCAPIHandoverInfo structure
     const handoverInfo = [origin, nonce, jwkThumbprint];

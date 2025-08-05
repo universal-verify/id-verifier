@@ -1,77 +1,88 @@
-import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId, ALL_TRUST_LISTS } from './constants.js';
-import { decodeVpToken, verifyDocument } from './oid4vp/mdoc-helper.js';
-import { generateSessionTranscript } from './utils.js';
+import { Protocol, CredentialFormat, ClaimMappings, ALL_TRUST_LISTS } from './constants.js';
+import { decodeVpToken, verifyDocument } from './formats/mdoc-helper.js';
+import { generateSessionTranscript, jwkToCoseKey, bufferToBase64Url } from './utils.js';
+import * as cbor2 from 'cbor2';
 
 class MDOCProtocolHelper {
     constructor() {
         this.protocol = Protocol.MDOC;
     }
 
-    createRequest(documentTypes, claims, nonce) {
-        const credentials = this._createQueryCredentials(documentTypes, claims);
-        if (credentials.length > 0) {
+    createRequest(documentTypes, claims, nonce, jwk) {
+        const deviceRequest = this._createDeviceRequest(documentTypes, claims);
+        const encryptionInfo = this._createEncryptionInfo(nonce, jwk);
+        if (deviceRequest) {
             return {
                 protocol: this.protocol,
                 data: {
-                    deviceRequest: {},
-                    encryptionInfo: '',
-                    nonce: nonce,
+                    deviceRequest: deviceRequest,
+                    encryptionInfo: encryptionInfo,
                 }
             };
         }
         return null;
     }
 
-    _createQueryCredentials(documentTypes, claims) {
-        const credentials = [];
-        for (const format of ProtocolFormats[this.protocol]) {
-            for(const documentType of documentTypes) {
-                const formatClaims = [];
+    _createDeviceRequest(documentTypes, claims) {
+        const version = '1.1';
+        const docRequests = [];
+        const readerAuthAll = [];//TODO: Waiting on Apple to approve my business connect request so I can test how this works
+        const documentSets = [];
+        let i = 0;
+        for(const documentType of documentTypes) {
+            const nameSpaces = {};
 
-                // Add claims for this format
-                claims.forEach(claim => {
-                    const claimPath = ClaimMappings[format]?.[documentType]?.[claim];
-                    if (claimPath) {
-                        formatClaims.push({
-                            path: claimPath
-                        });
+            claims.forEach(claim => {
+                const claimPath = ClaimMappings[CredentialFormat.MSO_MDOC]?.[documentType]?.[claim];
+                if (claimPath) {
+                    if(!nameSpaces[claimPath[0]]) {
+                        nameSpaces[claimPath[0]] = {};
                     }
-                });
-
-                if (formatClaims.length > 0) {
-                    const credential = {
-                        format,
-                        id: createCredentialId(format, documentType),
-                        claims: formatClaims,
-                        meta: {},
-                    };
-                    if(format === CredentialFormat.MSO_MDOC) {
-                        //https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#appendix-B.2.3
-                        credential.meta.doctype_value = documentType;
-                    } else if(format === CredentialFormat.DC_SD_JWT) {
-                        //https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#appendix-B.3.5
-                        credential.meta.vct_values = [];
-                    } else if(format === CredentialFormat.LDP_VC) {
-                        //https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#appendix-B.1.1
-                        credential.meta.type_values = [];
-                    }
-
-                    credentials.push(credential);
+                    nameSpaces[claimPath[0]][claimPath[1]] = true;
                 }
+            });
+
+            if (Object.keys(nameSpaces).length > 0) {
+                const itemsRequest = {
+                    docType: documentType,
+                    nameSpaces: nameSpaces,
+                };
+                docRequests.push({
+                    itemsRequest: new cbor2.Tag(24, cbor2.encode(itemsRequest)),
+                });
+                documentSets.push([i++]);
             }
         }
-        return credentials;
+        const deviceRequestInfo = new cbor2.Tag(24, cbor2.encode({
+            useCases: [{
+                mandatory: true,
+                documentSets: documentSets,
+            }]
+        }));
+        return {
+            version: version,
+            docRequests: docRequests,
+            readerAuthAll: readerAuthAll,
+            deviceRequestInfo: deviceRequestInfo,
+        };
+    }
+
+    _createEncryptionInfo(nonceHex, jwk) {
+        const nonce = new Uint8Array(nonceHex.length / 2);
+        for (let i = 0; i < nonceHex.length; i += 2) {
+            nonce[i / 2] = parseInt(nonceHex.substr(i, 2), 16);
+        }
+        const encryptionInfo = cbor2.encode(['dcapi', {
+            nonce: nonce,
+            recipientPublicKey: jwkToCoseKey(jwk),
+        }]);
+        return bufferToBase64Url(encryptionInfo);
     }
 
     async verify(credentialData, trustLists, origin, nonce) {
-        const vpToken = credentialData.vp_token;
-        for(const key in vpToken) {
-            if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
-                //TODO: Support response with multiple credentials in the future
-                return this._verifyMsoMdoc(vpToken[key], trustLists, origin, nonce);
-            }
-        }
-        throw new Error('Unsupported credential format');
+        const response = credentialData.response;
+        console.log('decoded response', await decodeVpToken(response));
+        throw new Error('Unexpected response format for MDOC protocol');
     }
 
     async _verifyMsoMdoc(tokens, trustLists, origin, nonce) {
@@ -79,7 +90,7 @@ class MDOCProtocolHelper {
         const claims = {};
         const documents = [];
         let trusted = true;
-        let issuers = [];
+        const issuers = [];
 
         // Generate session transcript if origin and nonce are provided
         let sessionTranscript;

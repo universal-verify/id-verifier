@@ -2,6 +2,7 @@
 import {
     createRequestParams,
     generateNonce,
+    generateJWK,
     getCredentials,
     verifyCredentials,
     Claim,
@@ -207,6 +208,7 @@ class IndexPage {
             console.log('Selected document types:', documentTypes);
 
             const nonce = generateNonce();
+            const jwk = await generateJWK();
             const origin = window.location.origin;
 
             // Create request parameters using the user's configuration
@@ -214,6 +216,7 @@ class IndexPage {
                 documentTypes,
                 claims,
                 nonce,
+                jwk,
             });
             console.log('Request parameters:', JSON.stringify(requestParams, null, 2));
 

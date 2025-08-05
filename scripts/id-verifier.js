@@ -15,11 +15,13 @@ import MDOCProtocolHelper from './mdoc-protocol-helper.js';
  * @param {Array<string>} options.documentTypes - Type(s) of documents to request
  * @param {Array<string>} options.claims - Array of Claim enum values to request
  * @param {string} options.nonce - Security nonce to use in the request
+ * @param {Object} options.jwk - JSON Web Key to use for encryption
  * @returns {Object} Request parameters compatible with Digital Credentials API
  */
 export const createRequestParams = (options = {}) => {
     const {
         nonce = generateNonce(),
+        jwk,
         documentTypes = [DocumentType.MOBILE_DRIVERS_LICENSE],
         claims = [],
     } = options;
@@ -49,13 +51,14 @@ export const createRequestParams = (options = {}) => {
         if(protocol === Protocol.OPENID4VP) {
             request = OpenID4VPProtocolHelper.createRequest(types, claims, nonce);
         } else if(protocol === Protocol.MDOC) {
-            request = MDOCProtocolHelper.createRequest(types, claims);
+            request = MDOCProtocolHelper.createRequest(types, claims, nonce, jwk);
         }
         if (request) requests.push(request);
     }
 
     // Return the Digital Credentials API compatible structure
     return {
+        mediation: 'required',
         digital: {
             requests: requests
         }
@@ -86,8 +89,8 @@ export const getCredentials = async (requestParams, options = {}) => {
 
     //filter out requests that are not supported by the browser
     requestParams.digital.requests = requestParams.digital.requests.filter(request => {
-        //TODO: Replace with navigator.credentials.userAgentAllowsProtocol(request.protocol) once the API is available
-        return request.protocol === Protocol.OPENID4VP;//navigator.credentials.userAgentAllowsProtocol(request.protocol);
+        //TODO: Replace with DigitalCredentials.userAgentAllowsProtocol(request.protocol) once the API is available
+        return request.protocol === Protocol.OPENID4VP;//DigitalCredentials.userAgentAllowsProtocol(request.protocol);
     });
 
     try {
@@ -117,6 +120,7 @@ export const getCredentials = async (requestParams, options = {}) => {
         };
 
     } catch (error) {
+        console.error('Error getting credentials', error);
         if (error.name === 'AbortError') {
             throw new Error('Credential request timed out');
         }
@@ -202,6 +206,19 @@ export const generateNonce = () => {
         }
     }
     return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+/**
+ * Generates a JWK (JSON Web Key) using the P-256 curve
+ * @returns {Promise<Object>} Promise that resolves to the JWK
+ */
+export const generateJWK = async () => {
+    const keyPair = await crypto.subtle.generateKey({
+        name: 'ECDSA',
+        namedCurve: 'P-256',
+    }, true, ['sign']);
+    const jwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+    return jwk;
 };
 
 export {
