@@ -4,7 +4,7 @@ import {
     generateNonce,
     generateJWK,
     requestCredentials,
-    processCredentialsResponse,
+    processCredentials,
     Claim,
     DocumentType
 } from '../id-verifier.js';
@@ -145,9 +145,9 @@ class IndexPage {
             for (const [enumName, enumValue] of Object.entries(Claim)) {
                 claimEnumNames[enumValue] = `Claim.${enumName}`;
             }
-            
+
             // Format the claims using enum format
-            const formattedClaims = claims.map(claim => 
+            const formattedClaims = claims.map(claim =>
                 claimEnumNames[claim] || `'${claim}'`
             ).join(', ');
             claimsListElement.textContent = formattedClaims;
@@ -161,9 +161,9 @@ class IndexPage {
             for (const [enumName, enumValue] of Object.entries(DocumentType)) {
                 documentTypeEnumNames[enumValue] = `DocumentType.${enumName}`;
             }
-            
+
             // Format the document types using enum format
-            const formattedDocumentTypes = documentTypes.map(docType => 
+            const formattedDocumentTypes = documentTypes.map(docType =>
                 documentTypeEnumNames[docType] || `'${docType}'`
             ).join(', ');
             documentTypesListElement.textContent = formattedDocumentTypes;
@@ -171,12 +171,12 @@ class IndexPage {
     }
 
     checkCompatibility() {
-        if (typeof navigator === 'undefined' || !navigator.credentials) {
-            this.updateStatus('❌ Digital Credentials API not supported in this browser', 'error');
+        if (typeof navigator === 'undefined' || !navigator.credentials || typeof DigitalCredential === 'undefined') {
+            this.updateStatus('❌ Digital Credentials API not found. Please try enabling the DigitalCredentials feature flag in Chrome or Safari (iOS 26+).', 'error');
             return false;
         }
 
-        this.updateStatus('✅ Digital Credentials API is supported! You can request credentials.', 'success');
+        this.updateStatus('✅ Digital Credentials API found! Requests <a href="https://caniuse.com/mdn-api_digitalcredential" target="_blank" style="text-decoration: underline; color: #007bff;">might</a> work.', 'success');
         this.enableButtons();
         return true;
     }
@@ -184,7 +184,7 @@ class IndexPage {
     updateStatus(message, type = 'info') {
         if (!this.statusEl) return;
 
-        this.statusEl.textContent = message;
+        this.statusEl.innerHTML = message;
 
         const classes = {
             info: 'bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-4 mb-4',
@@ -237,13 +237,13 @@ class IndexPage {
             console.log('Request parameters:', JSON.stringify(requestParams, null, 2));
 
             // Request the credential
-            const credential = await requestCredentials(requestParams);
-            console.log('Credential:', credential);
+            const credentials = await requestCredentials(requestParams);
+            console.log('Credential:', credentials);
 
             this.showResult('✅ Credential received successfully!\n\nProcessing credential...', 'info');
 
             // Verify the credential
-            const result = await processCredentialsResponse(credential, { nonce, origin, jwk });
+            const result = await processCredentials(credentials, { nonce, origin, jwk });
             console.log('Credential processed:', result);
 
             const replaceKeys = ['document', 'sessionTranscript'];

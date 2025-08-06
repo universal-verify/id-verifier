@@ -65,6 +65,3 @@ When you’ve decided to make changes, start with the following:
 * Pull requests should be with respect to some GitHub issue. Please mention it with a hash (e.g. #2774), If there are no issues for your pull request, please create one first and verify it with the repo owner
 * Pull requests should be made to the dev branch unless otherwise decided upon
 * If you modify existing code or add new code, please modify or add tests when relevant
-
-## Acknowledgements
-This file is largely ~~ripped off of~~ based on [three.js](https://github.com/mrdoob/three.js)'s CONTRIBUTING.md 😅

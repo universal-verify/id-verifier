@@ -47,7 +47,7 @@ export const createCredentialId = (format, documentType) => {
 };
 
 export const CredentialId = {
-    'cred-mso_mdoc-org_iso_23220_photoID_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.PHOTO_ID },
+    'cred-mso_mdoc-org_iso_23220_photoid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.PHOTO_ID },
     'cred-mso_mdoc-eu_europa_ec_eudi_pid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.EU_PERSONAL_ID },
     'cred-mso_mdoc-org_iso_23220_1_jp_mnc': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.JAPAN_MY_NUMBER_CARD },
     'cred-mso_mdoc-org_iso_18013_5_1_mDL': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.MOBILE_DRIVERS_LICENSE },
@@ -103,7 +103,7 @@ export const ClaimMappings = {
             //[Claim.HAIR_COLOR]: ['', ''],
             [Claim.ADDRESS]: ['org.iso.23220.1', 'resident_address_unicode'],
             [Claim.CITY]: ['org.iso.23220.1', 'resident_city_unicode'],
-            [Claim.STATE]: ['org.iso.23220.photoID.1', 'resident_state'],
+            [Claim.STATE]: ['org.iso.23220.photoid.1', 'resident_state'],
             [Claim.POSTAL_CODE]: ['org.iso.23220.1', 'resident_postal_code'],
             [Claim.COUNTRY]: ['org.iso.23220.1', 'resident_country'],
             [Claim.NATIONALITY]: ['org.iso.23220.1', 'nationality'],

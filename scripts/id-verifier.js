@@ -126,7 +126,7 @@ export const requestCredentials = async (requestParams, options = {}) => {
 /**
  * Processes a digital credential response
  *
- * @param {Object} credentialResponse - The credential response from getCredentials
+ * @param {Object} credentials - The credentials response from requestCredentials
  * @param {Object} params - Verification params
  * @param {Array<string>} params.trustLists - Names of trust lists to use for determining trust. Defaults to all
  * @param {string} params.origin - The origin of the request (for session transcript generation)
@@ -134,7 +134,7 @@ export const requestCredentials = async (requestParams, options = {}) => {
  * @param {Object} params.jwk - The JWK used to encrypt the request
  * @returns {Promise<Object>} Promise that resolves to the processed credential information
  */
-export const processCredentialsResponse = async (credentialResponse, params = {}) => {
+export const processCredentials = async (credentials, params = {}) => {
     const {
         trustLists = ALL_TRUST_LISTS,
         origin = null,
@@ -142,17 +142,17 @@ export const processCredentialsResponse = async (credentialResponse, params = {}
         jwk = null
     } = params;
 
-    if (!credentialResponse || typeof credentialResponse !== 'object')
+    if (!credentials || typeof credentials !== 'object')
         throw new Error('Invalid credential response');
-    if (!credentialResponse.data)
+    if (!credentials.data)
         throw new Error('Credential response missing data');
 
-    if(credentialResponse.protocol === Protocol.OPENID4VP) {
-        return await OpenID4VPProtocolHelper.verify(credentialResponse.data, trustLists, origin, nonce);
-    } else if(credentialResponse.protocol === Protocol.MDOC) {
-        return await MDOCProtocolHelper.verify(credentialResponse.data, trustLists, origin, nonce, jwk);
+    if(credentials.protocol === Protocol.OPENID4VP) {
+        return await OpenID4VPProtocolHelper.verify(credentials.data, trustLists, origin, nonce);
+    } else if(credentials.protocol === Protocol.MDOC) {
+        return await MDOCProtocolHelper.verify(credentials.data, trustLists, origin, nonce, jwk);
     } else {
-        throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
+        throw new Error(`Unsupported protocol: ${credentials.protocol}`);
     }
 };
 

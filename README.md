@@ -1,15 +1,13 @@
-# ID Verifier - Digital Credentials API Wrapper
+# ID Verifier
 
-A JavaScript library that simplifies digital ID verification using the W3C Digital Credentials API. This library provides functions for both backend and frontend usage to create credential requests, retrieve credentials from users, and verify credential responses.
+A JavaScript library that simplifies requesting mobile IDs built on top of the new W3C Digital Credentials API. [See it in action here](https://universal-verify.github.io/id-verifier/), and consider sponsoring this project or least giving it a shoutout if you feel it's helped in any way.
 
 ## Features
 
 - **Cross-platform**: Works in both browser and Node.js environments
 - **Protocol Support**: Supports OpenID4VP and ISO mDoc protocols
 - **Document Types**: Supports multiple document types including Mobile Driver's License, Photo ID, EU Personal ID, and Japan My Number Card
-- **Type Safety**: Built-in validation for document types and claims
 - **Security**: Includes nonce generation, timeouts, and trusted issuer verification
-- **Flexible**: Configurable for different use cases and requirements
 
 ## Installation
 
@@ -19,65 +17,55 @@ npm install id-verifier
 
 ## Quick Start
 
-### Backend: Create Request Parameters
-
 ```javascript
-import { createRequestParams, DocumentType, Claim } from 'id-verifier';
+import {
+    createCredentialsRequest,
+    requestCredentials,
+    processCredentials,
+    generateNonce,
+    generateJWK,
+    DocumentType,
+    Claim
+} from 'id-verifier';
 
-// Create request parameters for a driver's license verification
-const requestParams = createRequestParams({
-  documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
-  claims: [
-    Claim.GIVEN_NAME,
-    Claim.FAMILY_NAME,
-    Claim.AGE_OVER_21
-  ]
-});
-
-// Send these parameters to your frontend
-```
-
-### Frontend: Request Credentials
-
-```javascript
-import { getCredentials } from 'id-verifier';
-
-// Request credentials from the user
 try {
-  const credentialResponse = await getCredentials(requestParams, {
-    timeout: 300000 // 5 minutes
+  // Generate security parameters
+  const nonce = generateNonce();
+  const jwk = await generateJWK();
+
+  // Create credentials request
+  const requestParams = createCredentialsRequest({
+    documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
+    claims: [
+      Claim.GIVEN_NAME,
+      Claim.FAMILY_NAME,
+      Claim.AGE_OVER_21
+    ],
+    nonce,
+    jwk
   });
-  
-  // Send the credential response to your backend for verification
-  const verificationResult = await fetch('/api/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credentialResponse)
+
+  // Request credentials
+  const credentials = await requestCredentials(requestParams);
+
+  // Process and verify the credentials
+  const result = await processCredentials(credentials, {
+    nonce,
+    jwk,
+    origin: window.location.origin
   });
+
+  console.log('Credentials processed successfully!');
+  console.log('Available claims:', result.claims);
+  console.log('Trusted:', result.trusted);
+  console.log('Valid:', result.valid);
   
 } catch (error) {
   console.error('Credential request failed:', error.message);
 }
 ```
 
-### Backend: Verify Credentials
-
-```javascript
-import { verifyCredentials } from 'id-verifier';
-
-// Verify the credential response
-const verificationResult = await verifyCredentials(credentialResponse, {
-  trustFrameworks: ['uv']
-});
-
-if (verificationResult.verified) {
-  console.log('Credential verified successfully!');
-  console.log('Available claims:', verificationResult.claims);
-  console.log('Trusted issuer:', verificationResult.issuer);
-} else {
-  console.error('Verification failed:', verificationResult.error);
-}
-```
+While this example does run on the frontend, it is __strongly__ encouraged to create the credentials request and process the credentials response on your backend. The generated security nonce and jwk should stay on your backend
 
 ## API Reference
 
@@ -94,58 +82,91 @@ Supported document types:
 Supported claim fields that can be requested:
 - `GIVEN_NAME` - Given name
 - `FAMILY_NAME` - Family name
-- `FULL_NAME` - Full name
 - `BIRTH_DATE` - Birth date
+- `BIRTH_YEAR` - Birth year
 - `AGE` - Age
 - `AGE_OVER_18` - Age over 18 verification
 - `AGE_OVER_21` - Age over 21 verification
+- `SEX` - Sex/Gender
+- `HEIGHT` - Height
+- `WEIGHT` - Weight
+- `EYE_COLOR` - Eye color
+- `HAIR_COLOR` - Hair color
 - `ADDRESS` - Address
 - `CITY` - City
 - `STATE` - State/Province
 - `POSTAL_CODE` - Postal code
 - `COUNTRY` - Country
 - `NATIONALITY` - Nationality
-- `GENDER` - Gender
 - `PLACE_OF_BIRTH` - Place of birth
 - `DOCUMENT_NUMBER` - Document number
 - `ISSUING_AUTHORITY` - Issuing authority
+- `ISSUING_COUNTRY` - Issuing country
+- `ISSUING_JURISDICTION` - Issuing jurisdiction
 - `ISSUE_DATE` - Issue date
 - `EXPIRY_DATE` - Expiry date
+- `DRIVING_PRIVILEGES` - Driving privileges
 - `PORTRAIT` - Portrait photo
 - `SIGNATURE` - Signature
 
 ### Functions
 
-#### `createRequestParams(options)`
+#### `generateNonce()`
 
-Creates request parameters for digital credential verification.
+Generates a cryptographically secure nonce for request security. Meant for backend use
+
+**Returns:** String - Hex string with 128 bits of entropy
+
+**Example:**
+```javascript
+const nonce = generateNonce();
+```
+
+#### `generateJWK()`
+
+Generates a JSON Web Key using the P-256 curve for encryption. Meant for backend use
+
+**Returns:** Promise<Object> - Promise that resolves to the JWK
+
+**Example:**
+```javascript
+const jwk = await generateJWK();
+```
+
+#### `createCredentialsRequest(options)`
+
+Creates request parameters for digital credential verification. Meant for backend use
 
 **Parameters:**
 - `options` (Object):
-  - `documentTypes` (string|Array<string>): Type(s) of documents to request (default: `[DocumentType.MOBILE_DRIVERS_LICENSE]`)
+  - `documentTypes` (Array<string>): Type(s) of documents to request (default: `[DocumentType.MOBILE_DRIVERS_LICENSE]`)
   - `claims` (Array<string>): Array of claim fields from `Claim` to request (default: `[]`)
+  - `nonce` (string): Security nonce (required)
+  - `jwk` (Object): JSON Web Key for encryption (required)
 
 **Returns:** Object compatible with Digital Credentials API
 
 **Example:**
 ```javascript
-const params = createRequestParams({
+const params = createCredentialsRequest({
   documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE, DocumentType.PHOTO_ID],
   claims: [
     Claim.GIVEN_NAME,
     Claim.FAMILY_NAME,
     Claim.AGE_OVER_21,
     Claim.ADDRESS
-  ]
+  ],
+  nonce: nonce,
+  jwk: jwk
 });
 ```
 
-#### `getCredentials(requestParams, options)`
+#### `requestCredentials(requestParams, options)`
 
-Requests digital credentials from the user (browser-only).
+Requests digital credentials from the user (browser-only)
 
 **Parameters:**
-- `requestParams` (Object): Request parameters from `createRequestParams`
+- `requestParams` (Object): Request parameters from `createCredentialsRequest`
 - `options` (Object):
   - `timeout` (number): Request timeout in milliseconds (default: 300000)
 
@@ -153,164 +174,129 @@ Requests digital credentials from the user (browser-only).
 
 **Example:**
 ```javascript
-const credential = await getCredentials(requestParams, {
+const credentials = await requestCredentials(requestParams, {
   timeout: 600000 // 10 minutes
 });
 ```
 
-#### `verifyCredentials(credentialResponse, options)`
+#### `processCredentials(credentials, params)`
 
-Verifies a digital credential response.
+Processes and verifies a digital credential response. Meant for backend use
 
 **Parameters:**
-- `credentialResponse` (Object): The credential response from `getCredentials`
-- `options` (Object):
-  - `trustFrameworks` (Array<string>): List of trust frameworks to use for determining trust (default: `['uv']`)
+- `credentials` (Object): The credentials response from `requestCredentials`
+- `params` (Object):
+  - `nonce` (string): The nonce from the original request (required)
+  - `jwk` (Object): The JWK used to encrypt the request (required)
+  - `origin` (string): The origin of the request (required)
+  - `trustLists` (Array<string>): Names of trust lists to use for determining trust (default: all available)
+
+_Trust lists are sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Current values are `aamva_dts` and `uv` at the time of writing_
 
 **Returns:** Promise that resolves to verification result
 
 **Example:**
 ```javascript
-const result = await verifyCredentials(credentialResponse, {
-  trustFrameworks: ['uv']
+const result = await processCredentials(credentials, {
+  nonce,
+  jwk,
+  origin: window.location.origin,
+  trustLists: ['universal-verify']
 });
 ```
 
 ### Verification Result
 
-The `verifyCredentials` function returns an object with the following structure:
+The `processCredentials` function returns an object with the following structure:
 
 **Success Response:**
 ```javascript
 {
-  "verified": true,
   "claims": {
     "given_name": "Erika",
     "family_name": "Mustermann",
     "age_over_21": true
   },
+  "valid": true,
   "trusted": true,
-  "issuer": {
-    "issuer_id": "x509_aki:q2Ub4FbCkFPx3X9s5Ie-aN5gyfU",
-    "entity_type": "government",
-    "entity_metadata": {
-      "country": "US",
-      "region": "VA",
-      "government_level": "state",
-      "official_name": "Multipaz"
-    },
-    "display": {
-      "name": "Multipaz IACA Test",
-      "logo": "https://avatars.githubusercontent.com/u/131064301",
-      "description": "Official issuer of mobile driver's licenses and proof of age credentials in Multipaz."
-    },
-    "trust_frameworks": ["uv"],
-    "certificates": [
-      {
-        "certificate": "-----BEGIN CERTIFICATE-----\n...",
-        "certificate_format": "pem"
+  "processedDocuments": [
+    {
+      "claims": {
+        "given_name": "Erika",
+        "family_name": "Mustermann",
+        "age_over_21": true
+      },
+      "valid": true,
+      "trusted": true,
+      "document": "...", // Full document data
+      "issuer": {
+        "issuer_id": "x509_aki:q2Ub4FbCkFPx3X9s5Ie-aN5gyfU",
+        "entity_type": "government",
+        "entity_metadata": {
+          "country": "US",
+          "region": "VA",
+          "government_level": "state",
+          "official_name": "Multipaz"
+        },
+        "display": {
+          "name": "Multipaz IACA Test",
+          "logo": "https://avatars.githubusercontent.com/u/131064301",
+          "description": "Official issuer of mobile driver's licenses and proof of age credentials in Multipaz."
+        },
+        "signature": "MEUCIQDrmlcELKPJHKiwlb/90zNPoiweAry0tF+j/LA21wxlWAIgNIeWgJc3dijrwrjRmMjJwecxif4hMi87zD55k7DOLLM=",
+        "certificate": {
+          "data": "-----BEGIN CERTIFICATE-----\n...",
+          "format": "pem",
+          "trust_lists": ["uv"]
+        }
       }
-    ],
-    "expires_at": 4286822400,
-    "signature": "MEQCIAlQbTxkJp80r/p5zrY8DaNDCtpwmycDLESdDpigR1GoAiBpKT17XHvEvmncdMtfTh5atPPnLr0vVJvAuhzCnVCJzA=="
-  }
+    }
+  ],
+  "sessionTranscript": "..." // Session transcript data
 }
 ```
 
-**Error Response:**
-```javascript
-{
-  "verified": false,
-  "error": "Verification failed: Invalid credential response",
-  "timestamp": "2024-01-15T10:30:00.000Z"
-}
-```
-
-## Complete Example
-
-Here's a complete example showing how to use the library:
-
-```javascript
-import { createRequestParams, getCredentials, verifyCredentials, DocumentType, Claim } from 'id-verifier';
-
-// Backend: Create request parameters
-const requestParams = createRequestParams({
-  documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
-  claims: [
-    Claim.GIVEN_NAME,
-    Claim.FAMILY_NAME,
-    Claim.AGE_OVER_21,
-    Claim.ADDRESS
-  ]
-});
-
-// Frontend: Request credentials
-try {
-  const credential = await getCredentials(requestParams);
-  console.log('Credential received:', credential);
-  
-  // Send to backend for verification
-  const verificationResult = await verifyCredentials(credential, {
-    trustFrameworks: ['uv']
-  });
-  
-  if (verificationResult.verified) {
-    console.log('Verification successful!');
-    console.log('Claims:', verificationResult.claims);
-    console.log('Issuer:', verificationResult.issuer);
-  } else {
-    console.error('Verification failed:', verificationResult.error);
-  }
-  
-} catch (error) {
-  console.error('Error:', error.message);
-}
-```
-
-## Error Handling
-
-The library provides comprehensive error handling:
-
-```javascript
-try {
-  const credential = await getCredentials(requestParams);
-} catch (error) {
-  switch (error.message) {
-    case 'Digital Credentials API not supported in this browser':
-      // Handle unsupported browser
-      break;
-    case 'User denied credential request':
-      // Handle user rejection
-      break;
-    case 'Credential request timed out':
-      // Handle timeout
-      break;
-    case 'No credential was provided by the user':
-      // Handle no credential provided
-      break;
-    default:
-      // Handle other errors
-  }
-}
-```
+**Response Fields:**
+- `claims` (Object): Combined claims from all processed documents
+- `valid` (Boolean): Whether all documents are valid
+- `trusted` (Boolean): Whether all documents are from trusted issuers
+- `processedDocuments` (Array): Array of individual processed documents
+  - `claims` (Object): Claims extracted from this specific document
+  - `valid` (Boolean): Whether this document is valid
+  - `trusted` (Boolean): Whether this document's issuer is trusted by one of the given trust lists
+  - `document` (Object): Full unencrypted document data
+  - `issuer` (Object): Issuer information sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry)
+- `sessionTranscript` (Object): Session transcript that was used for decryption/verification
 
 ## Browser Support
 
 This library requires browsers that support the Digital Credentials API. Currently, this is an experimental API and may not be available in all browsers.
 
-## Security Considerations
+## How to test
 
-- Always validate credential responses on the backend
-- Use trusted issuer lists to prevent spoofing
-- Implement proper timeout handling
-- Store sensitive credential data securely
-- Follow privacy best practices for handling personal information
-- Use HTTPS in production environments
+### Android
+
+- Have an android device handy or run an android emulator
+- Download a wallet that allows you to create test credentials. [Here is one option](https://apps.multipaz.org)
+- Go to chrome://flags in your browser
+- Enable DigitalCredentials
+- Go to [our demo page](https://universal-verify.github.io/id-verifier/)
+- Tap on "Request Credentials"
+
+### iOS
+
+- Have an iPhone or simulator running iOS 26 or later
+  - If using a real iphone, make sure you've added your ID to your wallet if supported
+  - If your ID is not currently supported or you don't have an iphone, the simulator has simulated IDs preinstalled
+- Go to the device's Settings -> Apps -> Safari -> Advanced -> Feature Flags
+- Enabled the Digital Credentials API
+- Go to [our demo page](https://universal-verify.github.io/id-verifier/)
+- Tap on "Request Credentials"
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request (submit an issue first please)
 
 ## License
 
-This project is licensed under the MPL-2.0 License - see the LICENSE file for details.
+This project is licensed under the Mozilla Public License 2.0
