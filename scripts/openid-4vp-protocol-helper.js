@@ -99,13 +99,13 @@ class OpenID4VPProtocolHelper {
         }
         for(const document of documents) {
             const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            let issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
+            const issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
             trusted = trusted && issuerTrusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
             }
-            let processedDocument = {
+            const processedDocument = {
                 claims: documentClaims,
                 valid: documentValid,
                 trusted: !!issuerTrusted,

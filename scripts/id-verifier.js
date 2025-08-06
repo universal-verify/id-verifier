@@ -151,9 +151,9 @@ export const processCredentialsResponse = async (credentialResponse, params = {}
         jwk = null
     } = params;
 
-    if (!credentialResponse || typeof credentialResponse !== 'object') 
+    if (!credentialResponse || typeof credentialResponse !== 'object')
         throw new Error('Invalid credential response');
-    if (!credentialResponse.data) 
+    if (!credentialResponse.data)
         throw new Error('Credential response missing data');
 
     if(credentialResponse.protocol === Protocol.OPENID4VP) {

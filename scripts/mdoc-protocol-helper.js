@@ -8,7 +8,7 @@ import {
     CipherSuite,
     DhkemP256HkdfSha256,
     HkdfSha256,
-} from "@hpke/core";
+} from '@hpke/core';
 
 class MDOCProtocolHelper {
     constructor() {
@@ -102,20 +102,20 @@ class MDOCProtocolHelper {
     }
 
     async _decryptCipherText(cipherText, enc, sessionTranscript, jwk) {
-        const cryptoKey = await crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" },
-            true, ["deriveKey", "deriveBits"]);
+        const cryptoKey = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDH', namedCurve: 'P-256' },
+            true, ['deriveKey', 'deriveBits']);
         const suite = new CipherSuite({
             kem: new DhkemP256HkdfSha256(),
             kdf: new HkdfSha256(),
             aead: new Aes128Gcm(),
         });
-        
+
         const recipient = await suite.createRecipientContext({
             recipientKey: cryptoKey,
             enc: enc,
             info: sessionTranscript,
         });
-        
+
         try {
             const decrypted = await recipient.open(cipherText);
             return cbor2.decode(new Uint8Array(decrypted));
@@ -133,13 +133,13 @@ class MDOCProtocolHelper {
 
         for(const document of documents) {
             const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            let issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
+            const issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
             trusted = trusted && issuerTrusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
             }
-            let processedDocument = {
+            const processedDocument = {
                 claims: documentClaims,
                 valid: documentValid,
                 trusted: !!issuerTrusted,
@@ -168,14 +168,14 @@ async function generateSessionTranscript(origin, nonceHex, jwk) {
     for (let i = 0; i < nonceHex.length; i += 2) {
         nonce[i / 2] = parseInt(nonceHex.substr(i, 2), 16);
     }
-    let arfEncryptionInfo = {
+    const arfEncryptionInfo = {
         nonce: nonce,
         recipientPublicKey: jwkToCoseKey(jwk)
     };
 
-    let encryptionInfo = bufferToBase64Url(cbor2.encode(['dcapi', arfEncryptionInfo]));
+    const encryptionInfo = bufferToBase64Url(cbor2.encode(['dcapi', arfEncryptionInfo]));
 
-    let dcapiInfo = cbor2.encode([encryptionInfo, origin]);
+    const dcapiInfo = cbor2.encode([encryptionInfo, origin]);
     const hashBuffer = await crypto.subtle.digest('SHA-256', dcapiInfo);
     const hashArray = new Uint8Array(hashBuffer);
 
