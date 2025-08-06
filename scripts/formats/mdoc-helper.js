@@ -13,63 +13,72 @@ export const decodeVpToken = async (vp_token) => {
 
 export const verifyDocument = async (document, sessionTranscript) => {
     const claims = {};
+    const invalidReasons = [];
     const { docType, issuerSigned, deviceSigned } = document;
     const { issuerAuth, nameSpaces } = issuerSigned;
-    const { valid, issuerAuthPayload, certificate } = await verifyIssuerAuth(issuerAuth);
-    if(!valid) throw new Error('Issuer certificate verification failed');
-    if(sessionTranscript) {
-        const deviceValid = await verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript);
-        if(!deviceValid) throw new Error('Failed to verify device authentication');
-    } else {
-        console.warn('Skipping deviceAuth verification, likely due to missing origin and/or nonce in verifyCredentials call');
-    }
+    const { valid, issuerAuthPayload, certificate, invalidReason } = await verifyIssuerAuth(issuerAuth);
+    if(!valid) invalidReasons.push(invalidReason);
+    const deviceValid = await verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript);
+    if(!deviceValid) invalidReasons.push('Failed to verify device authentication');
+    let claimsValid = true;
     for(const namespace in nameSpaces) {
         for(const claim of nameSpaces[namespace]) {
-            await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
+            const claimValid = await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
+            if(!claimValid && claimsValid) {
+                claimsValid = false;
+                invalidReasons.push("Claim values don't match IssuerAuth value digests");
+            }
         }
     }
-    const trustedIssuer = await getIssuer(certificate);
+    const issuer = await getIssuer(certificate);
     return {
         claims: claims,
-        trustedIssuer: trustedIssuer,
+        issuer: issuer,
+        valid: valid && deviceValid && claimsValid,
+        invalidReasons: invalidReasons,
     };
 };
 
 async function verifyIssuerAuth(issuerAuth) {
+    let invalidReason, certificate;
     const [protectedHeadersRaw, unprotectedHeaders, payloadRaw, _signatureRaw] = issuerAuth;
     const protectedHeaders = await cbor2.decode(protectedHeadersRaw);
     const payload = await cbor2.decode(payloadRaw);
     const issuerAuthPayload = cbor2.decode(payload.contents); //This is the Mobile Security Object (MSO)
     const now = new Date();
     if(new Date(issuerAuthPayload.validityInfo.validFrom) > now) {
-        throw new Error('Credential is not yet valid');
+        invalidReason = 'MSO is not yet valid';
     } else if(new Date(issuerAuthPayload.validityInfo.validUntil) < now) {
-        throw new Error('Credential is expired');
+        invalidReason = 'MSO is expired';
     }
-    const coseAlg = protectedHeaders.get(1);
-    //https://datatracker.ietf.org/doc/rfc9360/
-    const x5bag = unprotectedHeaders.get(32);
-    const x5chain = unprotectedHeaders.get(33);
-    const x5t = unprotectedHeaders.get(34);
-    const x5u = unprotectedHeaders.get(35);
-    let certificate;
-    if(x5bag) {
-    } else if(x5chain) {
-        certificate = parseX5Chain(x5chain);
-    } else if(x5t) {
-    } else if(x5u) {
-    } else {
-        return { valid: false };
+    if(!invalidReason) {
+        const coseAlg = protectedHeaders.get(1);
+        //https://datatracker.ietf.org/doc/rfc9360/
+        const x5bag = unprotectedHeaders.get(32);
+        const x5chain = unprotectedHeaders.get(33);
+        const x5t = unprotectedHeaders.get(34);
+        const x5u = unprotectedHeaders.get(35);
+        if(x5bag) {
+        } else if(x5chain) {
+            certificate = parseX5Chain(x5chain);
+        } else if(x5t) {
+        } else if(x5u) {
+        }
+        if(certificate) {
+            const publicKey = await x509ToWebCryptoKey(certificate, coseAlg);
+            const signatureValid = await verifyCoseSign1(issuerAuth, publicKey);
+            if(!signatureValid)
+                invalidReason = 'IssuerAuth signature verification failed';
+        } else {
+            invalidReason = 'No certificate found in IssuerAuth header';
+        }
     }
-
-    const publicKey = await x509ToWebCryptoKey(certificate, coseAlg);
-    const signatureValid = await verifyCoseSign1(issuerAuth, publicKey);
 
     return {
         certificate: certificate,
         issuerAuthPayload: issuerAuthPayload,
-        publicKey: publicKey,
-        valid: signatureValid,
+        valid: !invalidReason,
+        invalidReason: invalidReason,
     };
 }
 
@@ -87,7 +96,6 @@ async function verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscri
 
 async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
     const { isValid, decodedClaim } = await verifyClaim(namespace, claim, issuerAuthPayload);
-    if(!isValid) throw new Error('Claim verification failed');
     let claimIdentifier = decodedClaim.elementIdentifier;
     let claimValue = decodedClaim.elementValue;
     if(claimValue.tag === 1004) {
@@ -119,6 +127,7 @@ async function setClaim(claims, docType, namespace, claim, issuerAuthPayload) {
     const reverseClaimMapping = REVERSE_CLAIM_MAPPINGS[CredentialFormat.MSO_MDOC][docType][claimIdentifier];
     if(reverseClaimMapping) claimIdentifier = reverseClaimMapping;
     claims[claimIdentifier] = claimValue;
+    return isValid;
 }
 
 async function verifyClaim(namespace, claim, issuerAuthPayload) {

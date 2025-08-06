@@ -1,5 +1,5 @@
 import * as cbor2 from 'cbor2';
-import { bufferToBase64Url } from './utils.js';
+import { bufferToBase64Url, base64urlToUint8Array } from './utils.js';
 import { CoseAlgToWebCrypto, CoseKtyMap, CoseCrvMap, CoseKeyAlgoMap } from './constants.js';
 
 export const verifyCoseSign1 = async (coseKey, publicKey) => {
@@ -60,4 +60,24 @@ export const coseKeyToWebCryptoKey = async (coseKey) => {
         jwk.e = x;
     }
     return await crypto.subtle.importKey('jwk', jwk, algo, true, ['verify']);
+};
+
+export const jwkToCoseKey = (jwk) => {
+    if (jwk.kty !== 'EC') {
+        throw new Error('Only EC keys supported at this time. Open a pull request if you need support for other key types.');
+    }
+    if (jwk.crv !== 'P-256') {
+        throw new Error('Only P-256 curve supported at this time. Open a pull request if you need support for other curves.');
+    }
+
+    const x = base64urlToUint8Array(jwk.x);
+    const y = base64urlToUint8Array(jwk.y);
+
+    const coseKey = new Map();
+    coseKey.set(1, 2);    // kty: EC2
+    coseKey.set(-1, 1);   // crv: P-256
+    coseKey.set(-2, x);   // x-coordinate
+    coseKey.set(-3, y);   // y-coordinate
+
+    return coseKey;
 };

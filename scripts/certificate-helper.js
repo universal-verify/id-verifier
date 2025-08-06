@@ -11,6 +11,7 @@ import { verifySignatureWithPem } from 'trusted-issuer-registry';
  */
 export const parseX5Chain = (x5chain) => {
     if(x5chain instanceof Array) x5chain = x5chain[0];
+    if(!x5chain) return null;
     const arrayBuffer = x5chain.buffer.slice(x5chain.byteOffset, x5chain.byteOffset + x5chain.byteLength);
     const asn1 = asn1js.fromBER(arrayBuffer);
     const cert = new Certificate({ schema: asn1.result });
@@ -23,6 +24,7 @@ export const parseX5Chain = (x5chain) => {
  * @returns {string} - The AuthorityKeyIdentifier in base64url format
  */
 export const getAuthorityKeyIdentifier = (x509Cert) => {
+    if(!x509Cert) return null;
     const authorityKeyId = x509Cert.extensions?.find(ext => ext.extnID === '2.5.29.35');
     if (authorityKeyId) {
         try {
