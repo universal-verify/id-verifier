@@ -108,6 +108,9 @@ class IndexPage {
             'placeOfBirth': Claim.PLACE_OF_BIRTH,
             'documentNumber': Claim.DOCUMENT_NUMBER,
             'issuingAuthority': Claim.ISSUING_AUTHORITY,
+            'issuingCountry': Claim.ISSUING_COUNTRY,
+            'issuingJurisdiction': Claim.ISSUING_JURISDICTION,
+            'issueDate': Claim.ISSUE_DATE,
             'expiryDate': Claim.EXPIRY_DATE,
             'drivingPrivileges': Claim.DRIVING_PRIVILEGES,
             'portrait': Claim.PORTRAIT,
@@ -137,16 +140,32 @@ class IndexPage {
         if (claims.length === 0) {
             claimsListElement.textContent = '// No claims selected';
         } else {
-            // Format the claims as a nice string with quotes
-            const formattedClaims = claims.map(claim => `'${claim}'`).join(', ');
+            // Create reverse mapping from Claim values to enum names
+            const claimEnumNames = {};
+            for (const [enumName, enumValue] of Object.entries(Claim)) {
+                claimEnumNames[enumValue] = `Claim.${enumName}`;
+            }
+            
+            // Format the claims using enum format
+            const formattedClaims = claims.map(claim => 
+                claimEnumNames[claim] || `'${claim}'`
+            ).join(', ');
             claimsListElement.textContent = formattedClaims;
         }
 
         if (documentTypes.length === 0) {
             documentTypesListElement.textContent = '// No document types selected';
         } else {
-            // Format the document types as a nice string with quotes
-            const formattedDocumentTypes = documentTypes.map(docType => `'${docType}'`).join(', ');
+            // Create reverse mapping from DocumentType values to enum names
+            const documentTypeEnumNames = {};
+            for (const [enumName, enumValue] of Object.entries(DocumentType)) {
+                documentTypeEnumNames[enumValue] = `DocumentType.${enumName}`;
+            }
+            
+            // Format the document types using enum format
+            const formattedDocumentTypes = documentTypes.map(docType => 
+                documentTypeEnumNames[docType] || `'${docType}'`
+            ).join(', ');
             documentTypesListElement.textContent = formattedDocumentTypes;
         }
     }
@@ -232,7 +251,17 @@ class IndexPage {
                 JSON.stringify(result, (key, value) => replaceKeys.includes(key) ? '...' : value, 2).replaceAll('"..."', '...'), 'success');
 
         } catch (error) {
-            this.showResult('❌ Credential request failed:\n' + error.message, 'error');
+            let errorMessage = error.name;
+            if(navigator.userAgent.includes('Safari')) {
+                if(error.name === 'TypeError') {
+                    errorMessage += ' (Safari currently lacks support outside of iOS 26)';
+                } else if(error.name === 'NotSupportedError') {
+                    errorMessage += ' (Safari currently lacks support outside of iOS 26)';
+                } else if(error.name === 'UnknownError') {
+                    errorMessage += ' (Safari uses this error to indicate user closed the dialog)';
+                }
+            }
+            this.showResult('❌ Credential request failed:\n' + errorMessage, 'error');
             console.error('Credential request failed:', error);
         }
     }

@@ -12,7 +12,7 @@ export const ALL_TRUST_LISTS = ['all_trust_lists'];
  * Supported document types for common identification documents
  */
 export const DocumentType = {
-    PHOTO_ID: 'org.iso.23220.photoID.1',
+    PHOTO_ID: 'org.iso.23220.photoid.1',
     EU_PERSONAL_ID: 'eu.europa.ec.eudi.pid.1',
     JAPAN_MY_NUMBER_CARD: 'org.iso.23220.1.jp.mnc',
     MOBILE_DRIVERS_LICENSE: 'org.iso.18013.5.1.mDL',

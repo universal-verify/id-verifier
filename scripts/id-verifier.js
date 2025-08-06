@@ -91,7 +91,7 @@ export const requestCredentials = async (requestParams, options = {}) => {
         const allowedProtocol = navigator.userAgent.includes('Safari') ? Protocol.MDOC : Protocol.OPENID4VP;
         return request.protocol === allowedProtocol;
         //return DigitalCredential.userAgentAllowsProtocol(request.protocol);
-    });
+    }).slice(0, 1);
 
     try {
         // Create the credential request options following the official spec
@@ -119,15 +119,6 @@ export const requestCredentials = async (requestParams, options = {}) => {
 
     } catch (error) {
         console.error('Error getting credentials', error);
-        if (error.name === 'AbortError') {
-            throw new Error('Credential request timed out');
-        }
-        if (error.name === 'NotAllowedError') {
-            throw new Error('User denied credential request');
-        }
-        if (error.name === 'NotSupportedError') {
-            throw new Error('Credential type not supported');
-        }
         throw error;
     }
 };

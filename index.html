@@ -22,10 +22,20 @@
     <script type="module" src="scripts/pages/index.js"></script>
 </head>
 <body class="font-sans max-w-4xl mx-auto p-5 leading-relaxed">
-    <h1 class="text-3xl font-bold mb-6">🚀 ID Verifier - Digital Credentials API Demo</h1>
+    <div class="bg-gray-100 border border-gray-300 rounded-lg p-4 mb-5 flex items-center justify-center">
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        <span class="text-gray-700 text-sm">
+            This project is <strong>open source</strong> and available on 
+            <a href="https://github.com/universal-verify/id-verifier" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline font-medium">GitHub</a>
+        </span>
+    </div>
+    
+    <h1 class="text-3xl font-bold mb-6">ID Verifier - A Digital Credentials API Wrapper</h1>
     
     <div class="bg-gray-50 rounded-lg p-5 mb-5">
-        <h2 class="text-xl font-semibold mb-3">Digital Credential Verification</h2>
+        <h2 class="text-xl font-semibold mb-3">Try it out</h2>
         <p class="mb-4">This example demonstrates how to request and verify digital credentials using the id-verifier library.</p>
         
         <div id="status" class="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-4 mb-4">
@@ -43,11 +53,11 @@
     <!-- Configuration -->
     <div class="bg-gray-50 rounded-lg p-5 mb-5">
         <h2 class="text-xl font-semibold mb-3">Configure Request</h2>
-        <p class="mb-4 text-gray-600">Select which document types and information you'd like to request from the user's credentials:</p>
+        <p class="mb-4 text-gray-600">Select the document types and information you'd like to request from the user:</p>
         
         <!-- Document Types -->
         <div class="mb-6">
-            <h3 class="text-lg font-semibold mb-3">Document Types</h3>
+            <h3 class="text-lg font-semibold mb-3">Allowed Document Types</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label class="flex items-center bg-white rounded-lg p-4 border border-gray-200">
                     <input type="checkbox" name="mobileDriversLicense" class="rounded text-blue-600 mr-3" checked>
@@ -247,29 +257,31 @@
             </div>
         </div>
         
-        <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
-            <p class="text-sm text-blue-800">
-                <strong>Note:</strong> Check the boxes for the document types and information you'd like to request from the user's credentials. 
-                All selected claims will be requested from the available credential formats.
-            </p>
-        </div>
-        
         <!-- Sample Script -->
         <div class="mt-6">
             <h3 class="text-lg font-semibold mb-3">Sample Code</h3>
             <p class="text-sm text-gray-600 mb-3">Here's the code that would be used to request the selected claims:</p>
-            <div id="sampleScript" class="bg-gray-50 border border-gray-200 rounded-md p-4 font-mono text-sm overflow-x-auto">
+            <div id="sampleScript" class="bg-gray-50 border border-gray-200 rounded-md p-4 font-mono text-sm overflow-x-auto whitespace-nowrap">
                 <div class="mb-2 text-gray-700">// Import the library</div>
-                <div class="mb-2"><span class="text-purple-600">import</span> { <span class="text-blue-600">createRequestParams</span>, <span class="text-blue-600">getCredentials</span> } <span class="text-purple-600">from</span> <span class="text-green-600">'id-verifier'</span>;</div>
-                <div class="mb-2"></div>
-                <div class="mb-2 text-gray-700">// Create request parameters on the backend</div>
-                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">requestParams</span> = <span class="text-blue-600">createRequestParams</span>({</div>
+                <div class="mb-2"><span class="text-purple-600">import</span> { <span class="text-blue-600">createCredentialsRequest</span>, <span class="text-blue-600">requestCredentials</span>, <span class="text-blue-600">processCredentialsResponse</span>, <span class="text-blue-600">generateNonce</span>, <span class="text-blue-600">generateJWK</span>, <span class="text-blue-600">DocumentType</span>, <span class="text-blue-600">Claim</span> } <span class="text-purple-600">from</span> <span class="text-green-600">'id-verifier'</span>;</div>
+                <div class="mb-2">&nbsp;</div>
+                <div class="mb-2 text-gray-700">// Generate required parameters</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">nonce</span> = <span class="text-blue-600">generateNonce</span>();</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">jwk</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">generateJWK</span>();</div>
+                <div class="mb-2">&nbsp;</div>
+                <div class="mb-2 text-gray-700">// Create request parameters</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">requestParams</span> = <span class="text-blue-600">createCredentialsRequest</span>({</div>
                 <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">documentTypes</span>: [<span id="documentTypesList" class="text-green-600">'org.iso.18013.5.1.mDL'</span>],</div>
-                <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">claims</span>: [<span id="claimsList" class="text-green-600">'givenName', 'familyName', 'ageOver21'</span>]</div>
+                <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">claims</span>: [<span id="claimsList" class="text-green-600">'givenName', 'familyName', 'ageOver21'</span>],</div>
+                <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">nonce</span>,</div>
+                <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">jwk</span></div>
                 <div class="mb-2">});</div>
-                <div class="mb-2"></div>
-                <div class="mb-2 text-gray-700">// Request credentials on the frontend</div>
-                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">credential</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">getCredentials</span>(<span class="text-blue-600">requestParams</span>);</div>
+                <div class="mb-2">&nbsp;</div>
+                <div class="mb-2 text-gray-700">// Request credentials</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">credential</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">requestCredentials</span>(<span class="text-blue-600">requestParams</span>);</div>
+                <div class="mb-2">&nbsp;</div>
+                <div class="mb-2 text-gray-700">// Process and verify the credential</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">result</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">processCredentialsResponse</span>(<span class="text-blue-600">credential</span>, { <span class="text-blue-600">nonce</span>, <span class="text-blue-600">jwk</span>, <span class="text-blue-600">origin</span>: <span class="text-green-600">window.location.origin</span> });</div>
             </div>
         </div>
     </div>
@@ -305,11 +317,31 @@
         
         <p class="mb-3"><strong>Note:</strong> In a real application, you would:</p>
         <ul class="list-disc list-inside space-y-1">
+            <li>Generate the credential request parameters on your backend to secure the nonce and JWK</li>
             <li>Send the credential response to your backend for verification</li>
-            <li>Implement proper error handling and user feedback</li>
-            <li>Use HTTPS in production</li>
-            <li>Follow privacy and security best practices</li>
+            <li>Implement proper error handling and verification fallbacks</li>
+            <li>Inform users of your data handling practices</li>
+            <li>Follow data residency and privacy laws</li>
         </ul>
+    </div>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-5">
+        <h2 class="text-xl font-semibold mb-3 text-blue-800">🤝 Help Us Improve</h2>
+        <p class="mb-3 text-blue-700">This is an open source project and we welcome contributions from the community to make digital identity verification more secure and accessible.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white rounded-lg p-4 border border-blue-200">
+                <h3 class="font-semibold text-blue-800 mb-2">🔧 Contribute Code</h3>
+                <p class="text-sm text-blue-700 mb-3">Help us add new features, fix bugs, or improve documentation. Every contribution matters!</p>
+                <p class="text-xs text-blue-600">Issues, pull requests, and feedback are always welcome.</p>
+            </div>
+            
+            <div class="bg-white rounded-lg p-4 border border-blue-200">
+                <h3 class="font-semibold text-blue-800 mb-2">🔒 Security Audits</h3>
+                <p class="text-sm text-blue-700 mb-3">Security researchers and auditors: please help us identify vulnerabilities and improve our security posture.</p>
+                <p class="text-xs text-blue-600">Responsible disclosure is appreciated and recognized.</p>
+            </div>
+        </div>
     </div>
 </body>
 </html> 
