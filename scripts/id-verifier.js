@@ -1,4 +1,5 @@
 import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, ALL_TRUST_LISTS } from './constants.js';
+import { setTestDataUsage } from './trusted-issuer-registry-helper.js';
 import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
 import MDOCProtocolHelper from './mdoc-protocol-helper.js';
 
@@ -191,5 +192,6 @@ export {
     Protocol,
     CredentialFormat,
     ProtocolFormats,
-    Claim
+    Claim,
+    setTestDataUsage
 };

@@ -6,7 +6,8 @@ import {
     requestCredentials,
     processCredentials,
     Claim,
-    DocumentType
+    DocumentType,
+    setTestDataUsage
 } from '../id-verifier.js';
 
 class IndexPage {
@@ -44,6 +45,7 @@ class IndexPage {
         // Add change event listener to each checkbox
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', () => {
+                if (checkbox.id === 'useTestData') setTestDataUsage(checkbox.checked);
                 this.updateSampleScript();
             });
         });

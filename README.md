@@ -1,6 +1,6 @@
 # ID Verifier
 
-A JavaScript library that simplifies requesting mobile IDs built on top of the new W3C Digital Credentials API. [See it in action here](https://universal-verify.github.io/id-verifier/), and consider sponsoring this project or least giving it a shoutout if you feel it's helped in any way.
+A JavaScript library that simplifies requesting mobile IDs built on top of the new W3C Digital Credentials API. [See it in action here](https://universal-verify.github.io/id-verifier/), and consider sponsoring this project or least giving it a shoutout if you feel it's helped in any way ⭐
 
 ## Features
 
@@ -287,15 +287,19 @@ This library requires browsers that support the Digital Credentials API. Current
 
 - Have an iPhone or simulator running iOS 26 or later
   - If using a real iphone, make sure you've added your ID to your wallet if supported
-  - If your ID is not currently supported or you don't have an iphone, the simulator has simulated IDs preinstalled
+  - If your ID is not currently supported or you don't have an iphone, the simulator has test credentials preinstalled
 - Go to the device's Settings -> Apps -> Safari -> Advanced -> Feature Flags
 - Enabled the Digital Credentials API
 - Go to [our demo page](https://universal-verify.github.io/id-verifier/)
 - Tap on "Request Credentials"
 
+_Test credentials won't present issuer information, however the demo page supports using the trusted-issuer-registry's test data. Test wallet providers are more than welcome to add their public certificates to the repo's test data. In the near future we will allow you to supply your own list of trusted credentials to the library, but until then, c'est la vie_
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request (submit an issue first please)
+
+To help others find this repo, please consider giving us a star ⭐
 
 ## License
 

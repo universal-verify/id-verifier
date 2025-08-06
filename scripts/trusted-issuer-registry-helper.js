@@ -1,11 +1,22 @@
 import TrustedIssuerRegistry from 'trusted-issuer-registry';
 import { getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from './certificate-helper.js';
 
-const registry = new TrustedIssuerRegistry({ useTestData: true });
+let registry = new TrustedIssuerRegistry();
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
 let endOfLifeDate, priorWarning;
 let priorCheck = 0;
+
+/**
+ * Sets whether to use the trusted-issuer-registry's test data
+ * @param {boolean} useTestData - Whether to use test data
+ */
+export const setTestDataUsage = (useTestData) => {
+    registry = new TrustedIssuerRegistry({ useTestData });
+    priorCheck = 0;
+    priorWarning = 0;
+    endOfLifeDate = null;
+}
 
 export const getIssuer = async (certificate) => {
     try {
