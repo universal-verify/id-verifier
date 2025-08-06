@@ -1,6 +1,6 @@
 import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId, ALL_TRUST_LISTS } from './constants.js';
 import { decodeVpToken, verifyDocument } from './formats/mdoc-helper.js';
-import { generateSessionTranscript } from './utils.js';
+import * as cbor2 from 'cbor2';
 
 class OpenID4VPProtocolHelper {
     constructor() {
@@ -70,7 +70,7 @@ class OpenID4VPProtocolHelper {
         const vpToken = credentialData.vp_token;
         for(const key in vpToken) {
             if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
-                //TODO: Support response with multiple credentials in the future
+                //TODO: Support response with multiple credential formats in the future
                 return this._verifyMsoMdoc(vpToken[key], trustLists, origin, nonce);
             }
         }
@@ -78,17 +78,15 @@ class OpenID4VPProtocolHelper {
     }
 
     async _verifyMsoMdoc(tokens, trustLists, origin, nonce) {
+        const processedDocuments = [];
         const decodedTokens = [];
-        const claims = {};
         const documents = [];
+        const claims = {};
         let trusted = true;
-        const issuers = [];
+        let valid = true;
 
         // Generate session transcript if origin and nonce are provided
-        let sessionTranscript;
-        if (origin && nonce) {
-            sessionTranscript = await generateSessionTranscript(origin, nonce);
-        }
+        const sessionTranscript = await generateSessionTranscript(origin, nonce);
 
         for(const token of tokens) {
             //verify base64url-encoded CBOR data
@@ -100,19 +98,55 @@ class OpenID4VPProtocolHelper {
             documents.push(...decodedToken.documents);
         }
         for(const document of documents) {
-            const { claims: documentClaims, trustedIssuer: trustedIssuer } = await verifyDocument(document, sessionTranscript);
-            if(trustedIssuer) issuers.push(trustedIssuer);
-            trusted = trusted && trustedIssuer && (trustLists == ALL_TRUST_LISTS || trustedIssuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
+            const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
+            let issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
+            trusted = trusted && issuerTrusted;
+            valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
             }
+            let processedDocument = {
+                claims: documentClaims,
+                valid: documentValid,
+                trusted: !!issuerTrusted,
+                document: document,
+            };
+            if(issuer) processedDocument.issuer = issuer;
+            if(!documentValid) processedDocument.invalidReasons = invalidReasons;
+            processedDocuments.push(processedDocument);
         }
         return {
             claims: claims,
-            trusted: trusted,
-            issuers: issuers,
+            valid: !!valid,
+            trusted: !!trusted,
+            processedDocuments: processedDocuments,
+            sessionTranscript: sessionTranscript,
         };
     }
+}
+
+async function generateSessionTranscript(origin, nonce, jwkThumbprint = null) {
+    if(!origin) throw new Error('Origin is required for generating session transcript');
+    if(!nonce) throw new Error('Nonce is required for generating session transcript');
+
+    // Create OpenID4VPDCAPIHandoverInfo structure
+    const handoverInfo = [origin, nonce, jwkThumbprint];
+
+    // Encode handoverInfo as CBOR
+    const handoverInfoBytes = cbor2.encode(handoverInfo);
+
+    // Calculate SHA-256 hash of the handoverInfoBytes
+    const hashBuffer = await crypto.subtle.digest('SHA-256', handoverInfoBytes);
+    const hashArray = new Uint8Array(hashBuffer);
+
+    // Create OpenID4VPDCAPIHandover structure
+    const handover = ['OpenID4VPDCAPIHandover', hashArray];
+
+    // Create SessionTranscript structure
+    // [DeviceEngagementBytes, EReaderKeyBytes, Handover]
+    // For dc_api, DeviceEngagementBytes and EReaderKeyBytes MUST be null
+    const sessionTranscript = cbor2.encode([null, null, handover]);
+    return sessionTranscript;
 }
 
 const openid4vpProtocolHelper = new OpenID4VPProtocolHelper();

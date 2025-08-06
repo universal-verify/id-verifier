@@ -1,10 +1,10 @@
 // Import the library
 import {
-    createRequestParams,
+    createCredentialsRequest,
     generateNonce,
     generateJWK,
-    getCredentials,
-    verifyCredentials,
+    requestCredentials,
+    processCredentialsResponse,
     Claim,
     DocumentType
 } from '../id-verifier.js';
@@ -204,15 +204,12 @@ class IndexPage {
             const claims = this.getClaimConfiguration();
             const documentTypes = this.getDocumentTypeConfiguration();
 
-            console.log('Selected claims:', claims);
-            console.log('Selected document types:', documentTypes);
-
             const nonce = generateNonce();
             const jwk = await generateJWK();
             const origin = window.location.origin;
 
             // Create request parameters using the user's configuration
-            const requestParams = createRequestParams({
+            const requestParams = createCredentialsRequest({
                 documentTypes,
                 claims,
                 nonce,
@@ -221,18 +218,18 @@ class IndexPage {
             console.log('Request parameters:', JSON.stringify(requestParams, null, 2));
 
             // Request the credential
-            const credential = await getCredentials(requestParams);
+            const credential = await requestCredentials(requestParams);
             console.log('Credential:', credential);
 
-            this.showResult('✅ Credential received successfully!\n\n' +
-                JSON.stringify(credential, null, 2), 'success');
+            this.showResult('✅ Credential received successfully!\n\nProcessing credential...', 'info');
 
             // Verify the credential
-            const verified = await verifyCredentials(credential, { nonce, origin });
-            console.log('Credential verified:', verified);
+            const result = await processCredentialsResponse(credential, { nonce, origin, jwk });
+            console.log('Credential processed:', result);
 
-            this.showResult('✅ Credential verified successfully!\n\n' +
-                JSON.stringify(verified, null, 2), 'success');
+            const replaceKeys = ['document', 'sessionTranscript'];
+            this.showResult('✅ Credential request successful!\n\n' +
+                JSON.stringify(result, (key, value) => replaceKeys.includes(key) ? '...' : value, 2).replaceAll('"..."', '...'), 'success');
 
         } catch (error) {
             this.showResult('❌ Credential request failed:\n' + error.message, 'error');

@@ -1,7 +1,14 @@
 import { Protocol, CredentialFormat, ClaimMappings, ALL_TRUST_LISTS } from './constants.js';
 import { decodeVpToken, verifyDocument } from './formats/mdoc-helper.js';
-import { generateSessionTranscript, jwkToCoseKey, bufferToBase64Url } from './utils.js';
+import { bufferToBase64Url } from './utils.js';
+import { jwkToCoseKey } from './cose-helper.js';
 import * as cbor2 from 'cbor2';
+import {
+    Aes128Gcm,
+    CipherSuite,
+    DhkemP256HkdfSha256,
+    HkdfSha256,
+} from "@hpke/core";
 
 class MDOCProtocolHelper {
     constructor() {
@@ -59,12 +66,12 @@ class MDOCProtocolHelper {
                 documentSets: documentSets,
             }]
         }));
-        return {
+        return bufferToBase64Url(cbor2.encode({
             version: version,
             docRequests: docRequests,
             readerAuthAll: readerAuthAll,
             deviceRequestInfo: deviceRequestInfo,
-        };
+        }));
     }
 
     _createEncryptionInfo(nonceHex, jwk) {
@@ -79,48 +86,103 @@ class MDOCProtocolHelper {
         return bufferToBase64Url(encryptionInfo);
     }
 
-    async verify(credentialData, trustLists, origin, nonce) {
+    async verify(credentialData, trustLists, origin, nonce, jwk) {
         const response = credentialData.response;
-        console.log('decoded response', await decodeVpToken(response));
-        throw new Error('Unexpected response format for MDOC protocol');
+        const decodedResponse = await decodeVpToken(response);
+        if(!Array.isArray(decodedResponse) || decodedResponse[0] !== 'dcapi') {
+            throw new Error('Expected decoded response to be an array with dcapi as first element');
+        }
+        const { enc, cipherText } = decodedResponse[1] || {};
+        if(!enc || !cipherText) {
+            throw new Error('Expected enc and cipherText in decoded response');
+        }
+        const sessionTranscript = await generateSessionTranscript(origin, nonce, jwk);
+        const decrypted = await this._decryptCipherText(cipherText, enc, sessionTranscript, jwk);
+        return this._verifyMsoMdoc(decrypted.documents, trustLists, sessionTranscript);
     }
 
-    async _verifyMsoMdoc(tokens, trustLists, origin, nonce) {
-        const decodedTokens = [];
+    async _decryptCipherText(cipherText, enc, sessionTranscript, jwk) {
+        const cryptoKey = await crypto.subtle.importKey("jwk", jwk, { name: "ECDH", namedCurve: "P-256" },
+            true, ["deriveKey", "deriveBits"]);
+        const suite = new CipherSuite({
+            kem: new DhkemP256HkdfSha256(),
+            kdf: new HkdfSha256(),
+            aead: new Aes128Gcm(),
+        });
+        
+        const recipient = await suite.createRecipientContext({
+            recipientKey: cryptoKey,
+            enc: enc,
+            info: sessionTranscript,
+        });
+        
+        try {
+            const decrypted = await recipient.open(cipherText);
+            return cbor2.decode(new Uint8Array(decrypted));
+        } catch (error) {
+            console.error('Error decrypting cipherText', error);
+            throw error;
+        }
+    }
+
+    async _verifyMsoMdoc(documents, trustLists, sessionTranscript) {
+        const processedDocuments = [];
         const claims = {};
-        const documents = [];
         let trusted = true;
-        const issuers = [];
+        let valid = true;
 
-        // Generate session transcript if origin and nonce are provided
-        let sessionTranscript;
-        if (origin && nonce) {
-            sessionTranscript = await generateSessionTranscript(origin, nonce);
-        }
-
-        for(const token of tokens) {
-            //verify base64url-encoded CBOR data
-            const decoded = await decodeVpToken(token);
-            console.log('decoded', decoded);
-            decodedTokens.push(decoded);
-        }
-        for(const decodedToken of decodedTokens) {
-            documents.push(...decodedToken.documents);
-        }
         for(const document of documents) {
-            const { claims: documentClaims, trustedIssuer: trustedIssuer } = await verifyDocument(document, sessionTranscript);
-            issuers.push(trustedIssuer);
-            trusted = trusted && trustedIssuer && (trustLists == ALL_TRUST_LISTS || trustedIssuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
+            const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
+            let issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
+            trusted = trusted && issuerTrusted;
+            valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
             }
+            let processedDocument = {
+                claims: documentClaims,
+                valid: documentValid,
+                trusted: !!issuerTrusted,
+                document: document,
+            };
+            if(issuer) processedDocument.issuer = issuer;
+            if(!documentValid) processedDocument.invalidReasons = invalidReasons;
+            processedDocuments.push(processedDocument);
         }
         return {
             claims: claims,
-            trusted: trusted,
-            issuers: issuers,
+            valid: !!valid,
+            trusted: !!trusted,
+            processedDocuments: processedDocuments,
+            sessionTranscript: sessionTranscript,
         };
     }
+}
+
+async function generateSessionTranscript(origin, nonceHex, jwk) {
+    if(!origin) throw new Error('Origin is required for generating session transcript');
+    if(!nonceHex) throw new Error('Nonce is required for generating session transcript');
+    if(!jwk) throw new Error('JWK is required for generating session transcript');
+
+    const nonce = new Uint8Array(nonceHex.length / 2);
+    for (let i = 0; i < nonceHex.length; i += 2) {
+        nonce[i / 2] = parseInt(nonceHex.substr(i, 2), 16);
+    }
+    let arfEncryptionInfo = {
+        nonce: nonce,
+        recipientPublicKey: jwkToCoseKey(jwk)
+    };
+
+    let encryptionInfo = bufferToBase64Url(cbor2.encode(['dcapi', arfEncryptionInfo]));
+
+    let dcapiInfo = cbor2.encode([encryptionInfo, origin]);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dcapiInfo);
+    const hashArray = new Uint8Array(hashBuffer);
+
+    const handover = ['dcapi', hashArray];
+
+    const sessionTranscript = cbor2.encode([null, null, handover]);
+    return sessionTranscript;
 }
 
 const mdocProtocolHelper = new MDOCProtocolHelper();

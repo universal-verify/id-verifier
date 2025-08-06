@@ -8,8 +8,7 @@ import MDOCProtocolHelper from './mdoc-protocol-helper.js';
  */
 
 /**
- * Creates request parameters for digital credential verification
- * Used by backend services to generate credential request options
+ * Creates request structure for digital credentials
  *
  * @param {Object} options - Configuration options
  * @param {Array<string>} options.documentTypes - Type(s) of documents to request
@@ -18,7 +17,7 @@ import MDOCProtocolHelper from './mdoc-protocol-helper.js';
  * @param {Object} options.jwk - JSON Web Key to use for encryption
  * @returns {Object} Request parameters compatible with Digital Credentials API
  */
-export const createRequestParams = (options = {}) => {
+export const createCredentialsRequest = (options = {}) => {
     const {
         nonce = generateNonce(),
         jwk,
@@ -67,14 +66,13 @@ export const createRequestParams = (options = {}) => {
 
 /**
  * Requests digital credentials from the user
- * Used by frontend applications to initiate credential presentation
  *
  * @param {Object} requestParams - Request parameters from createRequestParams
  * @param {Object} options - Additional options for the request
  * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
  * @returns {Promise<Object>} Promise that resolves to credential data or rejects with error
  */
-export const getCredentials = async (requestParams, options = {}) => {
+export const requestCredentials = async (requestParams, options = {}) => {
     const { timeout = 300000 } = options;
 
     // Validate that we're in a browser environment
@@ -90,7 +88,9 @@ export const getCredentials = async (requestParams, options = {}) => {
     //filter out requests that are not supported by the browser
     requestParams.digital.requests = requestParams.digital.requests.filter(request => {
         //TODO: Replace with DigitalCredentials.userAgentAllowsProtocol(request.protocol) once the API is available
-        return request.protocol === Protocol.OPENID4VP;//DigitalCredentials.userAgentAllowsProtocol(request.protocol);
+        const allowedProtocol = navigator.userAgent.includes('Safari') ? Protocol.MDOC : Protocol.OPENID4VP;
+        return request.protocol === allowedProtocol;
+        //return DigitalCredential.userAgentAllowsProtocol(request.protocol);
     });
 
     try {
@@ -103,8 +103,6 @@ export const getCredentials = async (requestParams, options = {}) => {
 
         // Request the credential
         const credential = await navigator.credentials.get(credentialRequestOptions);
-
-        console.log('credential', credential);
 
         if (!credential) {
             throw new Error('No credential was provided by the user');
@@ -135,65 +133,41 @@ export const getCredentials = async (requestParams, options = {}) => {
 };
 
 /**
- * Verifies a digital credential response
- * Used by backend services to validate and extract information from credential responses
+ * Processes a digital credential response
  *
  * @param {Object} credentialResponse - The credential response from getCredentials
- * @param {Object} options - Verification options
- * @param {Array<string>} options.trustLists - Names of trust lists to use for determining trust. Defaults to all
- * @param {string} options.origin - The origin of the request (for session transcript generation)
- * @param {string} options.nonce - The nonce from the original request (for session transcript generation)
- * @returns {Promise<Object>} Promise that resolves to verified credential information
+ * @param {Object} params - Verification params
+ * @param {Array<string>} params.trustLists - Names of trust lists to use for determining trust. Defaults to all
+ * @param {string} params.origin - The origin of the request (for session transcript generation)
+ * @param {string} params.nonce - The nonce from the original request (for session transcript generation)
+ * @param {Object} params.jwk - The JWK used to encrypt the request
+ * @returns {Promise<Object>} Promise that resolves to the processed credential information
  */
-export const verifyCredentials = async (credentialResponse, options = {}) => {
+export const processCredentialsResponse = async (credentialResponse, params = {}) => {
     const {
         trustLists = ALL_TRUST_LISTS,
         origin = null,
-        nonce = null
-    } = options;
+        nonce = null,
+        jwk = null
+    } = params;
 
-    try {
-        // Validate input
-        if (!credentialResponse || typeof credentialResponse !== 'object') {
-            throw new Error('Invalid credential response');
-        }
+    if (!credentialResponse || typeof credentialResponse !== 'object') 
+        throw new Error('Invalid credential response');
+    if (!credentialResponse.data) 
+        throw new Error('Credential response missing data');
 
-        if (!credentialResponse.data) {
-            throw new Error('Credential response missing data');
-        }
-
-        // Extract and validate credential data
-        const credentialData = credentialResponse.data;
-
-        let verificationResult;
-        if(credentialResponse.protocol === Protocol.OPENID4VP) {
-            verificationResult = await OpenID4VPProtocolHelper.verify(credentialData, trustLists, origin, nonce);
-        } else if(credentialResponse.protocol === Protocol.MDOC) {
-            verificationResult = await MDOCProtocolHelper.verify(credentialData, trustLists, origin, nonce);
-        } else {
-            throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
-        }
-
-        return {
-            verified: true,
-            claims: verificationResult.claims,
-            trusted: verificationResult.trusted,
-            issuers: verificationResult.issuers,
-        };
-
-    } catch (error) {
-        console.error('Error verifying credentials', error);
-        return {
-            verified: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        };
+    if(credentialResponse.protocol === Protocol.OPENID4VP) {
+        return await OpenID4VPProtocolHelper.verify(credentialResponse.data, trustLists, origin, nonce);
+    } else if(credentialResponse.protocol === Protocol.MDOC) {
+        return await MDOCProtocolHelper.verify(credentialResponse.data, trustLists, origin, nonce, jwk);
+    } else {
+        throw new Error(`Unsupported protocol: ${credentialResponse.protocol}`);
     }
 };
 
 /**
  * Helper function to generate a nonce for request security
- * @returns {string} Nonce with 128 bits of entropy
+ * @returns {string} Nonce hex string with 128 bits of entropy
  */
 export const generateNonce = () => {
     const array = new Uint8Array(16);
@@ -214,9 +188,9 @@ export const generateNonce = () => {
  */
 export const generateJWK = async () => {
     const keyPair = await crypto.subtle.generateKey({
-        name: 'ECDSA',
+        name: 'ECDH',
         namedCurve: 'P-256',
-    }, true, ['sign']);
+    }, true, ['deriveKey', 'deriveBits']);
     const jwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
     return jwk;
 };
