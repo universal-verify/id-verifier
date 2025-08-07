@@ -96,7 +96,7 @@ class MDOCProtocolHelper {
         if(!enc || !cipherText) {
             throw new Error('Expected enc and cipherText in decoded response');
         }
-        const sessionTranscript = await generateSessionTranscript(origin, nonce, jwk);
+        const sessionTranscript = await this._generateSessionTranscript(origin, nonce, jwk);
         const decrypted = await this._decryptCipherText(cipherText, enc, sessionTranscript, jwk);
         return this._verifyMsoMdoc(decrypted.documents, trustLists, sessionTranscript);
     }
@@ -157,32 +157,32 @@ class MDOCProtocolHelper {
             sessionTranscript: sessionTranscript,
         };
     }
-}
 
-async function generateSessionTranscript(origin, nonceHex, jwk) {
-    if(!origin) throw new Error('Origin is required for generating session transcript');
-    if(!nonceHex) throw new Error('Nonce is required for generating session transcript');
-    if(!jwk) throw new Error('JWK is required for generating session transcript');
+    async _generateSessionTranscript(origin, nonceHex, jwk) {
+        if(!origin) throw new Error('Origin is required for generating session transcript');
+        if(!nonceHex) throw new Error('Nonce is required for generating session transcript');
+        if(!jwk) throw new Error('JWK is required for generating session transcript');
 
-    const nonce = new Uint8Array(nonceHex.length / 2);
-    for (let i = 0; i < nonceHex.length; i += 2) {
-        nonce[i / 2] = parseInt(nonceHex.substr(i, 2), 16);
+        const nonce = new Uint8Array(nonceHex.length / 2);
+        for (let i = 0; i < nonceHex.length; i += 2) {
+            nonce[i / 2] = parseInt(nonceHex.substr(i, 2), 16);
+        }
+        const arfEncryptionInfo = {
+            nonce: nonce,
+            recipientPublicKey: jwkToCoseKey(jwk)
+        };
+
+        const encryptionInfo = bufferToBase64Url(cbor2.encode(['dcapi', arfEncryptionInfo]));
+
+        const dcapiInfo = cbor2.encode([encryptionInfo, origin]);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dcapiInfo);
+        const hashArray = new Uint8Array(hashBuffer);
+
+        const handover = ['dcapi', hashArray];
+
+        const sessionTranscript = cbor2.encode([null, null, handover]);
+        return sessionTranscript;
     }
-    const arfEncryptionInfo = {
-        nonce: nonce,
-        recipientPublicKey: jwkToCoseKey(jwk)
-    };
-
-    const encryptionInfo = bufferToBase64Url(cbor2.encode(['dcapi', arfEncryptionInfo]));
-
-    const dcapiInfo = cbor2.encode([encryptionInfo, origin]);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dcapiInfo);
-    const hashArray = new Uint8Array(hashBuffer);
-
-    const handover = ['dcapi', hashArray];
-
-    const sessionTranscript = cbor2.encode([null, null, handover]);
-    return sessionTranscript;
 }
 
 const mdocProtocolHelper = new MDOCProtocolHelper();

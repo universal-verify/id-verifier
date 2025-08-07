@@ -86,7 +86,7 @@ class OpenID4VPProtocolHelper {
         let valid = true;
 
         // Generate session transcript if origin and nonce are provided
-        const sessionTranscript = await generateSessionTranscript(origin, nonce);
+        const sessionTranscript = await this._generateSessionTranscript(origin, nonce);
 
         for(const token of tokens) {
             //verify base64url-encoded CBOR data
@@ -123,30 +123,30 @@ class OpenID4VPProtocolHelper {
             sessionTranscript: sessionTranscript,
         };
     }
-}
 
-async function generateSessionTranscript(origin, nonce, jwkThumbprint = null) {
-    if(!origin) throw new Error('Origin is required for generating session transcript');
-    if(!nonce) throw new Error('Nonce is required for generating session transcript');
+    async _generateSessionTranscript(origin, nonce, jwkThumbprint = null) {
+        if(!origin) throw new Error('Origin is required for generating session transcript');
+        if(!nonce) throw new Error('Nonce is required for generating session transcript');
 
-    // Create OpenID4VPDCAPIHandoverInfo structure
-    const handoverInfo = [origin, nonce, jwkThumbprint];
+        // Create OpenID4VPDCAPIHandoverInfo structure
+        const handoverInfo = [origin, nonce, jwkThumbprint];
 
-    // Encode handoverInfo as CBOR
-    const handoverInfoBytes = cbor2.encode(handoverInfo);
+        // Encode handoverInfo as CBOR
+        const handoverInfoBytes = cbor2.encode(handoverInfo);
 
-    // Calculate SHA-256 hash of the handoverInfoBytes
-    const hashBuffer = await crypto.subtle.digest('SHA-256', handoverInfoBytes);
-    const hashArray = new Uint8Array(hashBuffer);
+        // Calculate SHA-256 hash of the handoverInfoBytes
+        const hashBuffer = await crypto.subtle.digest('SHA-256', handoverInfoBytes);
+        const hashArray = new Uint8Array(hashBuffer);
 
-    // Create OpenID4VPDCAPIHandover structure
-    const handover = ['OpenID4VPDCAPIHandover', hashArray];
+        // Create OpenID4VPDCAPIHandover structure
+        const handover = ['OpenID4VPDCAPIHandover', hashArray];
 
-    // Create SessionTranscript structure
-    // [DeviceEngagementBytes, EReaderKeyBytes, Handover]
-    // For dc_api, DeviceEngagementBytes and EReaderKeyBytes MUST be null
-    const sessionTranscript = cbor2.encode([null, null, handover]);
-    return sessionTranscript;
+        // Create SessionTranscript structure
+        // [DeviceEngagementBytes, EReaderKeyBytes, Handover]
+        // For dc_api, DeviceEngagementBytes and EReaderKeyBytes MUST be null
+        const sessionTranscript = cbor2.encode([null, null, handover]);
+        return sessionTranscript;
+    }
 }
 
 const openid4vpProtocolHelper = new OpenID4VPProtocolHelper();
