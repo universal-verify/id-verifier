@@ -201,7 +201,7 @@ const result = await processCredentials(credentials, {
   nonce,
   jwk,
   origin: window.location.origin,
-  trustLists: ['universal-verify']
+  trustLists: ['uv']
 });
 ```
 
