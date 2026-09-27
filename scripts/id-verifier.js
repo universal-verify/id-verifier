@@ -77,7 +77,7 @@ export class Verifier {
     /**
      * Requests digital credentials from the user
      *
-     * @param {Object} requestParams - Request parameters from createRequestParams
+     * @param {Object} requestParams - Request parameters from createCredentialsRequest
      * @param {Object} options - Additional options for the request
      * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
      * @returns {Promise<Object>} Promise that resolves to credential data or rejects with error
@@ -87,7 +87,7 @@ export class Verifier {
 
         // Validate that we're in a browser environment
         if (typeof window === 'undefined') {
-            throw new Error('getCredentials can only be called in a browser environment');
+            throw new Error('requestCredentials can only be called in a browser environment');
         }
 
         // Validate that the Digital Credentials API is available
