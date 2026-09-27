@@ -6,7 +6,7 @@ import {
     Claim,
     DocumentType,
     setTestDataUsage
-} from '../id-verifier.js';
+} from '../../build/id-verifier.bundled.js';
 
 class IndexPage {
     constructor() {
