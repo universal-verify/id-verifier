@@ -1,10 +1,8 @@
 // Import the library
 import {
-    createCredentialsRequest,
+    Verifier,
     generateNonce,
     generateJWK,
-    requestCredentials,
-    processCredentials,
     Claim,
     DocumentType,
     setTestDataUsage
@@ -15,6 +13,7 @@ class IndexPage {
         this.statusEl = null;
         this.requestBtn = null;
         this.resultEl = null;
+        this.verifier = new Verifier();
 
         this.setup();
     }
@@ -230,7 +229,7 @@ class IndexPage {
             const origin = window.location.origin;
 
             // Create request parameters using the user's configuration
-            const requestParams = createCredentialsRequest({
+            const requestParams = this.verifier.createCredentialsRequest({
                 documentTypes,
                 claims,
                 nonce,
@@ -239,13 +238,13 @@ class IndexPage {
             console.log('Request parameters:', JSON.stringify(requestParams, null, 2));
 
             // Request the credential
-            const credentials = await requestCredentials(requestParams);
+            const credentials = await this.verifier.requestCredentials(requestParams);
             console.log('Credential:', credentials);
 
             this.showResult('✅ Credential received successfully!\n\nProcessing credential...', 'info');
 
             // Verify the credential
-            const result = await processCredentials(credentials, { nonce, origin, jwk });
+            const result = await this.verifier.processCredentials(credentials, { nonce, origin, jwk });
             console.log('Credential processed:', result);
 
             const replaceKeys = ['document', 'sessionTranscript'];

@@ -1,7 +1,7 @@
 import * as asn1js from 'asn1js';
 import { Certificate } from 'pkijs';
 import { CoseAlgToWebCrypto } from './constants.js';
-import { bufferToBase64Url, base64ToUint8Array } from './utils.js';
+import { bufferToBase64, bufferToBase64Url, base64ToUint8Array } from './utils.js';
 import { verifySignatureWithPem } from 'trusted-issuer-registry';
 
 /**
@@ -71,22 +71,11 @@ export const x509ToWebCryptoKey = async (x509Cert, coseAlg) => {
  * @returns {string} - The PEM certificate string
  */
 export const certificateToPem = (x509Cert) => {
-    // Get the raw certificate bytes
     const certBytes = x509Cert.toSchema().toBER();
-    const certArray = new Uint8Array(certBytes);
-
-    // Convert to URL-safe base64 first, then convert to standard base64
-    const urlSafeBase64 = bufferToBase64Url(certArray);
-    const base64 = urlSafeBase64.replace(/-/g, '+').replace(/_/g, '/');
-
-    // Add padding if needed
-    const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-    const paddedBase64 = base64 + pad;
-
-    // Format as PEM with 64-character lines and proper line endings
+    const base64 = bufferToBase64(new Uint8Array(certBytes));
     const pemLines = [];
-    for (let i = 0; i < paddedBase64.length; i += 64) {
-        pemLines.push(paddedBase64.slice(i, i + 64));
+    for (let i = 0; i < base64.length; i += 64) {
+        pemLines.push(base64.slice(i, i + 64));
     }
 
     return `-----BEGIN CERTIFICATE-----\r\n${pemLines.join('\r\n')}\r\n-----END CERTIFICATE-----`;

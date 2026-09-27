@@ -1,4 +1,5 @@
 import TrustedIssuerRegistry from 'trusted-issuer-registry';
+import { UntrustedReason } from './constants.js';
 import { getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from './certificate-helper.js';
 
 let registry = new TrustedIssuerRegistry();
@@ -16,28 +17,43 @@ export const setTestDataUsage = (useTestData) => {
     priorCheck = 0;
     priorWarning = 0;
     endOfLifeDate = null;
-}
+};
 
-export const getIssuer = async (certificate) => {
+export const getIssuerForCertificate = async (certificate) => {
     try {
+        if(!certificate) {
+            return {
+                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
+            };
+        }
         const aki = getAuthorityKeyIdentifier(certificate);
-        if(!aki) return null;
+        if(!aki) {
+            return {
+                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING,
+            };
+        }
         checkRegistryDeprecation();//No need to wait for this to complete
         const issuer = await registry.getIssuerFromX509AKI(aki);
-        if(!issuer) return null;
+        if(!issuer) {
+            return {
+                untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
+            };
+        }
 
         // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
         const matchedCertificate = await validateCertificateAgainstIssuer(certificate, issuer.certificates);
         if (matchedCertificate) {
             delete issuer.certificates;
             issuer.certificate = matchedCertificate;
-            return issuer;
+            return { issuer: issuer };
         }
 
-        return null;
+        return {
+            untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
+        };
     } catch(error) {
         console.error('Error getting issuer', error);
-        return null;
+        return { untrustedReason: UntrustedReason.ISSUER_FETCH_FAILED };
     }
 };
 

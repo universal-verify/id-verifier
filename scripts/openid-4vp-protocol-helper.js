@@ -1,5 +1,6 @@
-import { Protocol, ProtocolFormats, CredentialFormat, ClaimMappings, CredentialId, createCredentialId, ALL_TRUST_LISTS } from './constants.js';
+import { DocumentType, Protocol, ProtocolFormats, CredentialFormat, ClaimMappings } from './constants.js';
 import { decodeVpToken, verifyDocument } from './formats/mdoc-helper.js';
+import { getDocumentTrustInfo } from './trust-helper.js';
 import * as cbor2 from 'cbor2';
 
 class OpenID4VPProtocolHelper {
@@ -44,7 +45,7 @@ class OpenID4VPProtocolHelper {
                 if (formatClaims.length > 0) {
                     const credential = {
                         format,
-                        id: createCredentialId(format, documentType),
+                        id: createCredentialQueryId(format, documentType),
                         claims: formatClaims,
                         meta: {},
                     };
@@ -66,18 +67,18 @@ class OpenID4VPProtocolHelper {
         return credentials;
     }
 
-    async verify(credentialData, trustLists, origin, nonce) {
+    async verify(credentialData, origin, nonce, options = {}) {
         const vpToken = credentialData.vp_token;
         for(const key in vpToken) {
-            if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
+            if(credentialQueryById[key]?.format === CredentialFormat.MSO_MDOC) {
                 //TODO: Support response with multiple credential formats in the future
-                return this._verifyMsoMdoc(vpToken[key], trustLists, origin, nonce);
+                return this._verifyMsoMdoc(vpToken[key], origin, nonce, options);
             }
         }
         throw new Error('Unsupported credential format');
     }
 
-    async _verifyMsoMdoc(tokens, trustLists, origin, nonce) {
+    async _verifyMsoMdoc(tokens, origin, nonce, options = {}) {
         const processedDocuments = [];
         const decodedTokens = [];
         const documents = [];
@@ -98,9 +99,9 @@ class OpenID4VPProtocolHelper {
             documents.push(...decodedToken.documents);
         }
         for(const document of documents) {
-            const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            const issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
-            trusted = trusted && issuerTrusted;
+            const { claims: documentClaims, certificate, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
+            const trustInfo = await getDocumentTrustInfo(certificate, options);
+            trusted = trusted && trustInfo.trusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
@@ -108,11 +109,12 @@ class OpenID4VPProtocolHelper {
             const processedDocument = {
                 claims: documentClaims,
                 valid: documentValid,
-                trusted: !!issuerTrusted,
+                trusted: trustInfo.trusted,
+                issuer: trustInfo.issuer,
                 document: document,
             };
-            if(issuer) processedDocument.issuer = issuer;
             if(!documentValid) processedDocument.invalidReasons = invalidReasons;
+            if(!trustInfo.trusted) processedDocument.untrustedReasons = trustInfo.untrustedReasons;
             processedDocuments.push(processedDocument);
         }
         return {
@@ -146,6 +148,20 @@ class OpenID4VPProtocolHelper {
         // For dc_api, DeviceEngagementBytes and EReaderKeyBytes MUST be null
         const sessionTranscript = cbor2.encode([null, null, handover]);
         return sessionTranscript;
+    }
+}
+
+const createCredentialQueryId = (format, credentialType) => {
+    return `cred-${format.replace(/[^a-zA-Z0-9]/g, '_')}-${credentialType.replace(/[^a-zA-Z0-9]/g, '_')}`;
+};
+
+const credentialQueryById = {};
+for(const format of ProtocolFormats[Protocol.OPENID4VP]) {
+    for(const documentType of Object.values(DocumentType)) {
+        credentialQueryById[createCredentialQueryId(format, documentType)] = {
+            format: format,
+            documentType: documentType,
+        };
     }
 }
 

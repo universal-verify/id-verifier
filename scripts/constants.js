@@ -9,6 +9,30 @@ export const TrustList = {
 export const ALL_TRUST_LISTS = ['all_trust_lists'];
 
 /**
+ * Reasons a document may fail cryptographic or data-integrity verification
+ */
+export const InvalidReason = {
+    MSO_NOT_YET_VALID: 'MSO is not yet valid',
+    MSO_EXPIRED: 'MSO is expired',
+    ISSUER_AUTH_SIGNATURE_INVALID: 'IssuerAuth signature verification failed',
+    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is missing from IssuerAuth x5chain',
+    DEVICE_AUTH_FAILED: 'Failed to verify device authentication',
+    CLAIM_DIGEST_MISMATCH: 'Claim digest does not match IssuerAuth value digest',
+};
+
+/**
+ * Reasons issuer trust evaluation may fail
+ */
+export const UntrustedReason = {
+    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is required to determine issuer trust',
+    DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING: 'Document signer certificate does not contain an Authority Key Identifier',
+    ISSUER_FETCH_FAILED: 'Unable to retrieve issuer from trusted issuer registry',
+    ISSUER_CERTIFICATE_NOT_FOUND: 'No trusted issuer certificate found to validate the document signer certificate',
+    ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS: 'Issuer certificate is not trusted by the requested trust lists',
+    DOCUMENT_SIGNER_CERTIFICATE_REVOKED: 'Document signer certificate has been revoked by CRL',
+};
+
+/**
  * Supported document types for common identification documents
  */
 export const DocumentType = {
@@ -22,8 +46,8 @@ export const DocumentType = {
  * Supported protocols for credential exchange
  */
 export const Protocol = {
-    OPENID4VP: 'openid4vp-v1-unsigned',
-    MDOC: 'org-iso-mdoc'
+    MDOC: 'org-iso-mdoc',
+    OPENID4VP: 'openid4vp-v1-unsigned'
 };
 
 /**
@@ -39,18 +63,6 @@ export const CredentialFormat = {
 export const ProtocolFormats = {
     [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC],//CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
     [Protocol.MDOC]: [CredentialFormat.MSO_MDOC]
-};
-
-export const createCredentialId = (format, documentType) => {
-    //replace all non-alphanumeric characters with an underscore
-    return `cred-${format.replace(/[^a-zA-Z0-9]/g, '_')}-${documentType.replace(/[^a-zA-Z0-9]/g, '_')}`;
-};
-
-export const CredentialId = {
-    'cred-mso_mdoc-org_iso_23220_photoid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.PHOTO_ID },
-    'cred-mso_mdoc-eu_europa_ec_eudi_pid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.EU_PERSONAL_ID },
-    'cred-mso_mdoc-org_iso_23220_1_jp_mnc': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.JAPAN_MY_NUMBER_CARD },
-    'cred-mso_mdoc-org_iso_18013_5_1_mDL': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.MOBILE_DRIVERS_LICENSE },
 };
 
 /**

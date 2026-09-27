@@ -1,7 +1,8 @@
-import { Protocol, CredentialFormat, ClaimMappings, ALL_TRUST_LISTS } from './constants.js';
+import { Protocol, CredentialFormat, ClaimMappings } from './constants.js';
 import { decodeVpToken, verifyDocument } from './formats/mdoc-helper.js';
 import { bufferToBase64Url } from './utils.js';
 import { jwkToCoseKey } from './cose-helper.js';
+import { getDocumentTrustInfo } from './trust-helper.js';
 import * as cbor2 from 'cbor2';
 import {
     Aes128Gcm,
@@ -86,7 +87,7 @@ class MDOCProtocolHelper {
         return bufferToBase64Url(encryptionInfo);
     }
 
-    async verify(credentialData, trustLists, origin, nonce, jwk) {
+    async verify(credentialData, origin, nonce, jwk, options = {}) {
         const response = credentialData.response;
         const decodedResponse = await decodeVpToken(response);
         if(!Array.isArray(decodedResponse) || decodedResponse[0] !== 'dcapi') {
@@ -98,7 +99,7 @@ class MDOCProtocolHelper {
         }
         const sessionTranscript = await this._generateSessionTranscript(origin, nonce, jwk);
         const decrypted = await this._decryptCipherText(cipherText, enc, sessionTranscript, jwk);
-        return this._verifyMsoMdoc(decrypted.documents, trustLists, sessionTranscript);
+        return this._verifyMsoMdoc(decrypted.documents, sessionTranscript, options);
     }
 
     async _decryptCipherText(cipherText, enc, sessionTranscript, jwk) {
@@ -125,16 +126,16 @@ class MDOCProtocolHelper {
         }
     }
 
-    async _verifyMsoMdoc(documents, trustLists, sessionTranscript) {
+    async _verifyMsoMdoc(documents, sessionTranscript, options = {}) {
         const processedDocuments = [];
         const claims = {};
         let trusted = true;
         let valid = true;
 
         for(const document of documents) {
-            const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            const issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
-            trusted = trusted && issuerTrusted;
+            const { claims: documentClaims, certificate, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
+            const trustInfo = await getDocumentTrustInfo(certificate, options);
+            trusted = trusted && trustInfo.trusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
@@ -142,11 +143,12 @@ class MDOCProtocolHelper {
             const processedDocument = {
                 claims: documentClaims,
                 valid: documentValid,
-                trusted: !!issuerTrusted,
+                trusted: trustInfo.trusted,
+                issuer: trustInfo.issuer,
                 document: document,
             };
-            if(issuer) processedDocument.issuer = issuer;
             if(!documentValid) processedDocument.invalidReasons = invalidReasons;
+            if(!trustInfo.trusted) processedDocument.untrustedReasons = trustInfo.untrustedReasons;
             processedDocuments.push(processedDocument);
         }
         return {

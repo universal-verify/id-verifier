@@ -19,9 +19,7 @@ npm install id-verifier
 
 ```javascript
 import {
-    createCredentialsRequest,
-    requestCredentials,
-    processCredentials,
+    Verifier,
     generateNonce,
     generateJWK,
     DocumentType,
@@ -29,12 +27,14 @@ import {
 } from 'id-verifier';
 
 try {
+  const verifier = new Verifier();
+
   // Generate security parameters
   const nonce = generateNonce();
   const jwk = await generateJWK();
 
   // Create credentials request
-  const requestParams = createCredentialsRequest({
+  const requestParams = verifier.createCredentialsRequest({
     documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
     claims: [
       Claim.GIVEN_NAME,
@@ -46,10 +46,10 @@ try {
   });
 
   // Request credentials
-  const credentials = await requestCredentials(requestParams);
+  const credentials = await verifier.requestCredentials(requestParams);
 
   // Process and verify the credentials
-  const result = await processCredentials(credentials, {
+  const result = await verifier.processCredentials(credentials, {
     nonce,
     jwk,
     origin: window.location.origin
@@ -109,7 +109,72 @@ Supported claim fields that can be requested:
 - `PORTRAIT` - Portrait photo
 - `SIGNATURE` - Signature
 
-### Functions
+#### `InvalidReason`
+Stable string constants for `processedDocuments[].invalidReasons`, used when a document fails cryptographic or data-integrity verification.
+
+| Constant | Value |
+| --- | --- |
+| `InvalidReason.MSO_NOT_YET_VALID` | `MSO is not yet valid` |
+| `InvalidReason.MSO_EXPIRED` | `MSO is expired` |
+| `InvalidReason.ISSUER_AUTH_SIGNATURE_INVALID` | `IssuerAuth signature verification failed` |
+| `InvalidReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING` | `Document signer certificate is missing from IssuerAuth x5chain` |
+| `InvalidReason.DEVICE_AUTH_FAILED` | `Failed to verify device authentication` |
+| `InvalidReason.CLAIM_DIGEST_MISMATCH` | `Claim digest does not match IssuerAuth value digest` |
+
+#### `UntrustedReason`
+Stable string constants for `processedDocuments[].untrustedReasons`, used when issuer trust evaluation fails.
+
+| Constant | Value |
+| --- | --- |
+| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING` | `Document signer certificate is required to determine issuer trust` |
+| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING` | `Document signer certificate does not contain an Authority Key Identifier` |
+| `UntrustedReason.ISSUER_FETCH_FAILED` | `Unable to retrieve issuer from trusted issuer registry` |
+| `UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND` | `No trusted issuer certificate found to validate the document signer certificate` |
+| `UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS` | `Issuer certificate is not trusted by the requested trust lists` |
+| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_REVOKED` | `Document signer certificate has been revoked by CRL` |
+
+### Classes
+
+#### `Verifier`
+
+Creates an ID verifier with optional verification configuration.
+
+**Constructor options:**
+- `registry` (Object): trusted-issuer-registry configuration
+  - `enabled` (boolean): Whether to use the issuer registry for trust evaluation (default: true)
+  - `trustLists` (Array<string>): Names of registry trust lists to use for determining trust (default: all available)
+- `issuerCertificates` (Array): Issuer certificates supplied directly by the verifier (accepted for future use, not used yet)
+- `crl` (Object): CRL checking configuration
+  - `enabled` (boolean): Whether to check document signer certificate CRLs for certificate revocation (default: false)
+  - `timeout` (number): CRL request timeout in milliseconds (default: 5000)
+  - `cache` (Object): CRL cache configuration
+    - `enabled` (boolean): Whether to cache CRL fetch results in memory by URL (default: true)
+    - `ttl` (number): CRL cache TTL in milliseconds (default: 86400000)
+
+Registry trust lists are sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Current values are `aamva_dts` and `uv` at the time of writing.
+
+CRL checking affects whether a digital credential is trusted and is performed on a best-effort basis. CRLs that cannot be fetched or processed do not throw an error and do not impact trust.
+
+**Example:**
+```javascript
+const verifier = new Verifier({
+  registry: {
+    enabled: true,
+    trustLists: ['uv']
+  },
+  issuerCertificates: [],
+  crl: {
+    enabled: true,
+    timeout: 5000,
+    cache: {
+      enabled: true,
+      ttl: 86400000
+    }
+  }
+});
+```
+
+### Utilities and Methods
 
 #### `generateNonce()`
 
@@ -133,7 +198,7 @@ Generates a JSON Web Key using the P-256 curve for encryption. Meant for backend
 const jwk = await generateJWK();
 ```
 
-#### `createCredentialsRequest(options)`
+#### `verifier.createCredentialsRequest(options)`
 
 Creates request parameters for digital credential verification. Meant for backend use
 
@@ -148,7 +213,7 @@ Creates request parameters for digital credential verification. Meant for backen
 
 **Example:**
 ```javascript
-const params = createCredentialsRequest({
+const params = verifier.createCredentialsRequest({
   documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE, DocumentType.PHOTO_ID],
   claims: [
     Claim.GIVEN_NAME,
@@ -161,12 +226,12 @@ const params = createCredentialsRequest({
 });
 ```
 
-#### `requestCredentials(requestParams, options)`
+#### `verifier.requestCredentials(requestParams, options)`
 
 Requests digital credentials from the user (browser-only)
 
 **Parameters:**
-- `requestParams` (Object): Request parameters from `createCredentialsRequest`
+- `requestParams` (Object): Request parameters from `verifier.createCredentialsRequest`
 - `options` (Object):
   - `timeout` (number): Request timeout in milliseconds (default: 300000)
 
@@ -174,40 +239,36 @@ Requests digital credentials from the user (browser-only)
 
 **Example:**
 ```javascript
-const credentials = await requestCredentials(requestParams, {
+const credentials = await verifier.requestCredentials(requestParams, {
   timeout: 600000 // 10 minutes
 });
 ```
 
-#### `processCredentials(credentials, params)`
+#### `verifier.processCredentials(credentials, params)`
 
 Processes and verifies a digital credential response. Meant for backend use
 
 **Parameters:**
-- `credentials` (Object): The credentials response from `requestCredentials`
+- `credentials` (Object): The credentials response from `verifier.requestCredentials`
 - `params` (Object):
   - `nonce` (string): The nonce from the original request (required)
   - `jwk` (Object): The JWK used to encrypt the request (required)
   - `origin` (string): The origin of the request (required)
-  - `trustLists` (Array<string>): Names of trust lists to use for determining trust (default: all available)
-
-_Trust lists are sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Current values are `aamva_dts` and `uv` at the time of writing_
 
 **Returns:** Promise that resolves to verification result
 
 **Example:**
 ```javascript
-const result = await processCredentials(credentials, {
+const result = await verifier.processCredentials(credentials, {
   nonce,
   jwk,
-  origin: window.location.origin,
-  trustLists: ['universal-verify']
+  origin: window.location.origin
 });
 ```
 
 ### Verification Result
 
-The `processCredentials` function returns an object with the following structure:
+The `verifier.processCredentials` function returns an object with the following structure:
 
 **Success Response:**
 ```javascript
@@ -264,8 +325,10 @@ The `processCredentials` function returns an object with the following structure
   - `claims` (Object): Claims extracted from this specific document
   - `valid` (Boolean): Whether this document is valid
   - `trusted` (Boolean): Whether this document's issuer is trusted by one of the given trust lists
+  - `invalidReasons` (Array<string>): Reasons this document is invalid, present only when `valid` is false
+  - `untrustedReasons` (Array<string>): Reasons this document is untrusted, present only when `trusted` is false
   - `document` (Object): Full unencrypted document data
-  - `issuer` (Object): Issuer information sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry)
+  - `issuer` (Object): Issuer information sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry), `null` when no trusted issuer certificate is available
 - `sessionTranscript` (Object): Session transcript that was used for decryption/verification
 
 ## Browser Support
@@ -293,7 +356,7 @@ This library requires browsers that support the Digital Credentials API. Current
 - Go to [our demo page](https://universal-verify.github.io/id-verifier/)
 - Tap on "Request Credentials"
 
-_Test credentials won't present issuer information, however the demo page supports using the trusted-issuer-registry's test data. Test wallet providers are more than welcome to add their public certificates to the repo's test data. In the near future we will allow you to supply your own list of trusted credentials to the library, but until then, c'est la vie_
+_Test credentials won't present issuer information, however the demo page includes a "Use Test Issuer Registry" option that uses trusted-issuer-registry's test issuer dataset instead of its normal issuer dataset. Test wallet providers are more than welcome to add their public certificates to the repo's test data. In the near future we will allow you to supply your own list of trusted credentials to the library, but until then, c'est la vie_
 
 ## Contributing
 

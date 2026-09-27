@@ -1,4 +1,4 @@
-import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, ALL_TRUST_LISTS } from './constants.js';
+import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, InvalidReason, UntrustedReason, ALL_TRUST_LISTS } from './constants.js';
 import { setTestDataUsage } from './trusted-issuer-registry-helper.js';
 import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
 import MDOCProtocolHelper from './mdoc-protocol-helper.js';
@@ -8,153 +8,202 @@ import MDOCProtocolHelper from './mdoc-protocol-helper.js';
  * A library to simplify digital ID verification using the W3C Digital Credentials API
  */
 
-/**
- * Creates request structure for digital credentials
- *
- * @param {Object} options - Configuration options
- * @param {Array<string>} options.documentTypes - Type(s) of documents to request
- * @param {Array<string>} options.claims - Array of Claim enum values to request
- * @param {string} options.nonce - Security nonce to use in the request
- * @param {Object} options.jwk - JSON Web Key to use for encryption
- * @returns {Object} Request parameters compatible with Digital Credentials API
- */
-export const createCredentialsRequest = (options = {}) => {
-    const {
-        nonce = generateNonce(),
-        jwk,
-        documentTypes = [DocumentType.MOBILE_DRIVERS_LICENSE],
-        claims = [],
-    } = options;
-
-    // Normalize credential types to array
-    const types = Array.isArray(documentTypes) ? documentTypes : [documentTypes];
-
-    // Validate credential types
-    const validTypes = Object.values(DocumentType);
-    const invalidTypes = types.filter(type => !validTypes.includes(type));
-    if (invalidTypes.length > 0) {
-        throw new Error(`Invalid document types: ${invalidTypes.join(', ')}`);
+export class Verifier {
+    constructor(options = {}) {
+        options = options || {};
+        this.registry = normalizeRegistryConfig(options.registry);
+        this.issuerCertificates = normalizeIssuerCertificates(options.issuerCertificates);
+        this.crl = normalizeCRLConfig(options.crl);
+        this.crlCache = new Map();
     }
 
-    // Validate claims
-    const validClaims = Object.values(Claim);
-    const invalidClaims = claims.filter(claim => !validClaims.includes(claim));
-    if (invalidClaims.length > 0) {
-        throw new Error(`Invalid claims: ${invalidClaims.join(', ')}`);
-    }
+    /**
+     * Creates request structure for digital credentials
+     *
+     * @param {Object} options - Configuration options
+     * @param {Array<string>} options.documentTypes - Type(s) of documents to request
+     * @param {Array<string>} options.claims - Array of Claim enum values to request
+     * @param {string} options.nonce - Security nonce to use in the request
+     * @param {Object} options.jwk - JSON Web Key to use for encryption
+     * @returns {Object} Request parameters compatible with Digital Credentials API
+     */
+    createCredentialsRequest(options = {}) {
+        const {
+            nonce = generateNonce(),
+            jwk,
+            documentTypes = [DocumentType.MOBILE_DRIVERS_LICENSE],
+            claims = [],
+        } = options;
 
-    // Create requests for both protocols
-    const requests = [];
+        // Normalize credential types to array
+        const types = Array.isArray(documentTypes) ? documentTypes : [documentTypes];
 
-    for (const protocol of Object.values(Protocol)) {
-        let request;
-        if(protocol === Protocol.OPENID4VP) {
-            request = OpenID4VPProtocolHelper.createRequest(types, claims, nonce);
-        } else if(protocol === Protocol.MDOC) {
-            request = MDOCProtocolHelper.createRequest(types, claims, nonce, jwk);
+        // Validate credential types
+        const validTypes = Object.values(DocumentType);
+        const invalidTypes = types.filter(type => !validTypes.includes(type));
+        if (invalidTypes.length > 0) {
+            throw new Error(`Invalid document types: ${invalidTypes.join(', ')}`);
         }
-        if (request) requests.push(request);
+
+        // Validate claims
+        const validClaims = Object.values(Claim);
+        const invalidClaims = claims.filter(claim => !validClaims.includes(claim));
+        if (invalidClaims.length > 0) {
+            throw new Error(`Invalid claims: ${invalidClaims.join(', ')}`);
+        }
+
+        // Create requests for both protocols
+        const requests = [];
+
+        for (const protocol of Object.values(Protocol)) {
+            let request;
+            if(protocol === Protocol.OPENID4VP) {
+                request = OpenID4VPProtocolHelper.createRequest(types, claims, nonce);
+            } else if(protocol === Protocol.MDOC) {
+                request = MDOCProtocolHelper.createRequest(types, claims, nonce, jwk);
+            }
+            if (request) requests.push(request);
+        }
+
+        // Return the Digital Credentials API compatible structure
+        return {
+            mediation: 'required',
+            digital: {
+                requests: requests
+            }
+        };
     }
 
-    // Return the Digital Credentials API compatible structure
+    /**
+     * Requests digital credentials from the user
+     *
+     * @param {Object} requestParams - Request parameters from createRequestParams
+     * @param {Object} options - Additional options for the request
+     * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
+     * @returns {Promise<Object>} Promise that resolves to credential data or rejects with error
+     */
+    async requestCredentials(requestParams, options = {}) {
+        const { timeout = 300000 } = options;
+
+        // Validate that we're in a browser environment
+        if (typeof window === 'undefined') {
+            throw new Error('getCredentials can only be called in a browser environment');
+        }
+
+        // Validate that the Digital Credentials API is available
+        const DigitalCredentialAPI = globalThis.DigitalCredential;
+        if (typeof navigator === 'undefined' || !navigator.credentials || typeof DigitalCredentialAPI === 'undefined') {
+            throw new Error('Digital Credentials API not supported in this browser');
+        }
+        if (typeof DigitalCredentialAPI.userAgentAllowsProtocol !== 'function') {
+            throw new Error('Digital Credentials protocol detection not supported in this browser');
+        }
+
+        const supportedRequest = requestParams.digital.requests.find(request => {
+            return DigitalCredentialAPI.userAgentAllowsProtocol(request.protocol);
+        });
+        if(!supportedRequest) {
+            throw new Error('No supported digital credential protocol available in this browser');
+        }
+
+        try {
+            // Create the credential request options following the official spec
+            const credentialRequestOptions = {
+                ...requestParams,
+                digital: {
+                    ...requestParams.digital,
+                    requests: [supportedRequest]
+                },
+                mediation: 'required',
+                signal: AbortSignal.timeout(timeout)
+            };
+
+            // Request the credential
+            const credential = await navigator.credentials.get(credentialRequestOptions);
+
+            if (!credential) {
+                throw new Error('No credential was provided by the user');
+            }
+
+            // Return the credential data
+            return {
+                id: credential.id,
+                type: credential.type,
+                data: credential.data,
+                protocol: credential.protocol,
+                timestamp: new Date().toISOString()
+            };
+
+        } catch (error) {
+            console.error('Error getting credentials', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Processes a digital credential response
+     *
+     * @param {Object} credentials - The credentials response from requestCredentials
+     * @param {Object} params - Verification params
+     * @param {string} params.origin - The origin of the request (for session transcript generation)
+     * @param {string} params.nonce - The nonce from the original request (for session transcript generation)
+     * @param {Object} params.jwk - The JWK used to encrypt the request
+     * @returns {Promise<Object>} Promise that resolves to the processed credential information
+     */
+    async processCredentials(credentials, params = {}) {
+        const {
+            origin = null,
+            nonce = null,
+            jwk = null,
+        } = params;
+        if (!credentials || typeof credentials !== 'object')
+            throw new Error('Invalid credential response');
+        if (!credentials.data)
+            throw new Error('Credential response missing data');
+
+        const verificationOptions = {
+            registryEnabled: this.registry.enabled,
+            trustLists: this.registry.trustLists,
+            checkCRL: this.crl.enabled,
+            crlTimeout: this.crl.timeout,
+            crlCacheEnabled: this.crl.cache.enabled,
+            crlCacheTTL: this.crl.cache.ttl,
+            crlCache: this.crlCache,
+        };
+
+        if(credentials.protocol === Protocol.OPENID4VP) {
+            return await OpenID4VPProtocolHelper.verify(credentials.data, origin, nonce, verificationOptions);
+        } else if(credentials.protocol === Protocol.MDOC) {
+            return await MDOCProtocolHelper.verify(credentials.data, origin, nonce, jwk, verificationOptions);
+        } else {
+            throw new Error(`Unsupported protocol: ${credentials.protocol}`);
+        }
+    }
+}
+
+const normalizeRegistryConfig = (registry = {}) => {
+    registry = registry || {};
     return {
-        mediation: 'required',
-        digital: {
-            requests: requests
-        }
+        enabled: registry.enabled !== false,
+        trustLists: Array.isArray(registry.trustLists) ? [...registry.trustLists] : registry.trustLists || ALL_TRUST_LISTS,
     };
 };
 
-/**
- * Requests digital credentials from the user
- *
- * @param {Object} requestParams - Request parameters from createRequestParams
- * @param {Object} options - Additional options for the request
- * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
- * @returns {Promise<Object>} Promise that resolves to credential data or rejects with error
- */
-export const requestCredentials = async (requestParams, options = {}) => {
-    const { timeout = 300000 } = options;
-
-    // Validate that we're in a browser environment
-    if (typeof window === 'undefined') {
-        throw new Error('getCredentials can only be called in a browser environment');
-    }
-
-    // Validate that the Digital Credentials API is available
-    if (!navigator.credentials) {
-        throw new Error('Digital Credentials API not supported in this browser');
-    }
-
-    //filter out requests that are not supported by the browser
-    requestParams.digital.requests = requestParams.digital.requests.filter(request => {
-        //TODO: Replace with DigitalCredentials.userAgentAllowsProtocol(request.protocol) once the API is available
-        const allowedProtocol = navigator.userAgent.includes('Safari') ? Protocol.MDOC : Protocol.OPENID4VP;
-        return request.protocol === allowedProtocol;
-        //return DigitalCredential.userAgentAllowsProtocol(request.protocol);
-    }).slice(0, 1);
-
-    try {
-        // Create the credential request options following the official spec
-        const credentialRequestOptions = {
-            ...requestParams,
-            mediation: 'required',
-            signal: AbortSignal.timeout(timeout)
-        };
-
-        // Request the credential
-        const credential = await navigator.credentials.get(credentialRequestOptions);
-
-        if (!credential) {
-            throw new Error('No credential was provided by the user');
-        }
-
-        // Return the credential data
-        return {
-            id: credential.id,
-            type: credential.type,
-            data: credential.data,
-            protocol: credential.protocol,
-            timestamp: new Date().toISOString()
-        };
-
-    } catch (error) {
-        console.error('Error getting credentials', error);
-        throw error;
-    }
+const normalizeIssuerCertificates = (issuerCertificates = []) => {
+    return Array.isArray(issuerCertificates) ? [...issuerCertificates] : [];
 };
 
-/**
- * Processes a digital credential response
- *
- * @param {Object} credentials - The credentials response from requestCredentials
- * @param {Object} params - Verification params
- * @param {Array<string>} params.trustLists - Names of trust lists to use for determining trust. Defaults to all
- * @param {string} params.origin - The origin of the request (for session transcript generation)
- * @param {string} params.nonce - The nonce from the original request (for session transcript generation)
- * @param {Object} params.jwk - The JWK used to encrypt the request
- * @returns {Promise<Object>} Promise that resolves to the processed credential information
- */
-export const processCredentials = async (credentials, params = {}) => {
-    const {
-        trustLists = ALL_TRUST_LISTS,
-        origin = null,
-        nonce = null,
-        jwk = null
-    } = params;
-
-    if (!credentials || typeof credentials !== 'object')
-        throw new Error('Invalid credential response');
-    if (!credentials.data)
-        throw new Error('Credential response missing data');
-
-    if(credentials.protocol === Protocol.OPENID4VP) {
-        return await OpenID4VPProtocolHelper.verify(credentials.data, trustLists, origin, nonce);
-    } else if(credentials.protocol === Protocol.MDOC) {
-        return await MDOCProtocolHelper.verify(credentials.data, trustLists, origin, nonce, jwk);
-    } else {
-        throw new Error(`Unsupported protocol: ${credentials.protocol}`);
-    }
+const normalizeCRLConfig = (crl = {}) => {
+    crl = crl || {};
+    const cache = crl.cache || {};
+    return {
+        enabled: crl.enabled === true,
+        timeout: crl.timeout,
+        cache: {
+            enabled: cache.enabled,
+            ttl: cache.ttl,
+        },
+    };
 };
 
 /**
@@ -193,5 +242,7 @@ export {
     CredentialFormat,
     ProtocolFormats,
     Claim,
+    InvalidReason,
+    UntrustedReason,
     setTestDataUsage
 };

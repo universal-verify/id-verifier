@@ -1,6 +1,6 @@
 import TrustedIssuerRegistry, { verifySignatureWithPem } from 'trusted-issuer-registry';
 import * as asn1js from 'asn1js';
-import { Certificate } from 'pkijs';
+import { Certificate, CRLDistributionPoints, getCrypto, setEngine, CryptoEngine, IssuingDistributionPoint, CertificateRevocationList, BasicConstraints } from 'pkijs';
 import * as cbor2 from 'cbor2';
 import { CipherSuite, Aes128Gcm, HkdfSha256, DhkemP256HkdfSha256 } from '@hpke/core';
 
@@ -9,6 +9,30 @@ import { CipherSuite, Aes128Gcm, HkdfSha256, DhkemP256HkdfSha256 } from '@hpke/c
  */
 
 const ALL_TRUST_LISTS = ['all_trust_lists'];
+
+/**
+ * Reasons a document may fail cryptographic or data-integrity verification
+ */
+const InvalidReason = {
+    MSO_NOT_YET_VALID: 'MSO is not yet valid',
+    MSO_EXPIRED: 'MSO is expired',
+    ISSUER_AUTH_SIGNATURE_INVALID: 'IssuerAuth signature verification failed',
+    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is missing from IssuerAuth x5chain',
+    DEVICE_AUTH_FAILED: 'Failed to verify device authentication',
+    CLAIM_DIGEST_MISMATCH: 'Claim digest does not match IssuerAuth value digest',
+};
+
+/**
+ * Reasons issuer trust evaluation may fail
+ */
+const UntrustedReason = {
+    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is required to determine issuer trust',
+    DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING: 'Document signer certificate does not contain an Authority Key Identifier',
+    ISSUER_FETCH_FAILED: 'Unable to retrieve issuer from trusted issuer registry',
+    ISSUER_CERTIFICATE_NOT_FOUND: 'No trusted issuer certificate found to validate the document signer certificate',
+    ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS: 'Issuer certificate is not trusted by the requested trust lists',
+    DOCUMENT_SIGNER_CERTIFICATE_REVOKED: 'Document signer certificate has been revoked by CRL',
+};
 
 /**
  * Supported document types for common identification documents
@@ -24,8 +48,8 @@ const DocumentType = {
  * Supported protocols for credential exchange
  */
 const Protocol = {
-    OPENID4VP: 'openid4vp-v1-unsigned',
-    MDOC: 'org-iso-mdoc'
+    MDOC: 'org-iso-mdoc',
+    OPENID4VP: 'openid4vp-v1-unsigned'
 };
 
 /**
@@ -41,18 +65,6 @@ const CredentialFormat = {
 const ProtocolFormats = {
     [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC],//CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
     [Protocol.MDOC]: [CredentialFormat.MSO_MDOC]
-};
-
-const createCredentialId = (format, documentType) => {
-    //replace all non-alphanumeric characters with an underscore
-    return `cred-${format.replace(/[^a-zA-Z0-9]/g, '_')}-${documentType.replace(/[^a-zA-Z0-9]/g, '_')}`;
-};
-
-const CredentialId = {
-    'cred-mso_mdoc-org_iso_23220_photoid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.PHOTO_ID },
-    'cred-mso_mdoc-eu_europa_ec_eudi_pid_1': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.EU_PERSONAL_ID },
-    'cred-mso_mdoc-org_iso_23220_1_jp_mnc': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.JAPAN_MY_NUMBER_CARD },
-    'cred-mso_mdoc-org_iso_18013_5_1_mDL': { format: CredentialFormat.MSO_MDOC, documentType: DocumentType.MOBILE_DRIVERS_LICENSE },
 };
 
 /**
@@ -394,6 +406,24 @@ const x509ToWebCryptoKey = async (x509Cert, coseAlg) => {
 };
 
 /**
+ * Parse a PEM certificate string into a PKIjs Certificate object
+ * @param {string} pemString - The PEM certificate string
+ * @returns {Certificate} - The parsed Certificate object
+ */
+const parsePemCertificate = (pemString) => {
+    const pemContent = pemString
+        .replace(/-----BEGIN CERTIFICATE-----/, '')
+        .replace(/-----END CERTIFICATE-----/, '')
+        .replace(/\s/g, '');
+
+    const bytes = base64ToUint8Array(pemContent);
+
+    const asn1 = asn1js.fromBER(bytes.buffer);
+    const cert = new Certificate({ schema: asn1.result });
+    return cert;
+};
+
+/**
  * Validate a certificate against a list of issuer certificates in PEM format
  * @param {Certificate} certificate - The certificate to validate
  * @param {Array} issuerCertificates - The list of issuer certificates in PEM format
@@ -448,26 +478,41 @@ const setTestDataUsage = (useTestData) => {
     endOfLifeDate = null;
 };
 
-const getIssuer = async (certificate) => {
+const getIssuerForCertificate = async (certificate) => {
     try {
+        if(!certificate) {
+            return {
+                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
+            };
+        }
         const aki = getAuthorityKeyIdentifier(certificate);
-        if(!aki) return null;
+        if(!aki) {
+            return {
+                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING,
+            };
+        }
         checkRegistryDeprecation();//No need to wait for this to complete
         const issuer = await registry.getIssuerFromX509AKI(aki);
-        if(!issuer) return null;
+        if(!issuer) {
+            return {
+                untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
+            };
+        }
 
         // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
         const matchedCertificate = await validateCertificateAgainstIssuer(certificate, issuer.certificates);
         if (matchedCertificate) {
             delete issuer.certificates;
             issuer.certificate = matchedCertificate;
-            return issuer;
+            return { issuer: issuer };
         }
 
-        return null;
+        return {
+            untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
+        };
     } catch(error) {
         console.error('Error getting issuer', error);
-        return null;
+        return { untrustedReason: UntrustedReason.ISSUER_FETCH_FAILED };
     }
 };
 
@@ -589,21 +634,20 @@ const verifyDocument = async (document, sessionTranscript) => {
     const { valid, issuerAuthPayload, certificate, invalidReason } = await verifyIssuerAuth(issuerAuth);
     if(!valid) invalidReasons.push(invalidReason);
     const deviceValid = await verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript);
-    if(!deviceValid) invalidReasons.push('Failed to verify device authentication');
+    if(!deviceValid) invalidReasons.push(InvalidReason.DEVICE_AUTH_FAILED);
     let claimsValid = true;
     for(const namespace in nameSpaces) {
         for(const claim of nameSpaces[namespace]) {
             const claimValid = await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
             if(!claimValid && claimsValid) {
                 claimsValid = false;
-                invalidReasons.push("Claim values don't match IssuerAuth value digests");
+                invalidReasons.push(InvalidReason.CLAIM_DIGEST_MISMATCH);
             }
         }
     }
-    const issuer = await getIssuer(certificate);
     return {
         claims: claims,
-        issuer: issuer,
+        certificate: certificate,
         valid: valid && deviceValid && claimsValid,
         invalidReasons: invalidReasons,
     };
@@ -615,29 +659,30 @@ async function verifyIssuerAuth(issuerAuth) {
     const protectedHeaders = await cbor2.decode(protectedHeadersRaw);
     const payload = await cbor2.decode(payloadRaw);
     const issuerAuthPayload = cbor2.decode(payload.contents); //This is the Mobile Security Object (MSO)
+    const coseAlg = protectedHeaders.get(1);
+    //https://datatracker.ietf.org/doc/rfc9360/
+    const x5bag = unprotectedHeaders.get(32);
+    const x5chain = unprotectedHeaders.get(33);
+    unprotectedHeaders.get(34);
+    unprotectedHeaders.get(35);
+    if(x5bag) ; else if(x5chain) {
+        certificate = parseX5Chain(x5chain);
+    } else ;
+
     const now = new Date();
     if(new Date(issuerAuthPayload.validityInfo.validFrom) > now) {
-        invalidReason = 'MSO is not yet valid';
+        invalidReason = InvalidReason.MSO_NOT_YET_VALID;
     } else if(new Date(issuerAuthPayload.validityInfo.validUntil) < now) {
-        invalidReason = 'MSO is expired';
+        invalidReason = InvalidReason.MSO_EXPIRED;
     }
     if(!invalidReason) {
-        const coseAlg = protectedHeaders.get(1);
-        //https://datatracker.ietf.org/doc/rfc9360/
-        const x5bag = unprotectedHeaders.get(32);
-        const x5chain = unprotectedHeaders.get(33);
-        unprotectedHeaders.get(34);
-        unprotectedHeaders.get(35);
-        if(x5bag) ; else if(x5chain) {
-            certificate = parseX5Chain(x5chain);
-        } else ;
         if(certificate) {
             const publicKey = await x509ToWebCryptoKey(certificate, coseAlg);
             const signatureValid = await verifyCoseSign1(issuerAuth, publicKey);
             if(!signatureValid)
-                invalidReason = 'IssuerAuth signature verification failed';
+                invalidReason = InvalidReason.ISSUER_AUTH_SIGNATURE_INVALID;
         } else {
-            invalidReason = 'No certificate found in IssuerAuth header';
+            invalidReason = InvalidReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING;
         }
     }
 
@@ -714,6 +759,686 @@ function uint8ArrayBytewiseEqual(a, b) {
     return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
+const BASIC_CONSTRAINTS_OID = '2.5.29.19';
+const KEY_USAGE_OID = '2.5.29.15';
+const DELTA_CRL_INDICATOR_OID = '2.5.29.27';
+const ISSUING_DISTRIBUTION_POINT_OID = '2.5.29.28';
+const CRL_DISTRIBUTION_POINTS_OID = '2.5.29.31';
+const CRL_PEM_BEGIN = '-----BEGIN X509 CRL-----';
+const CRL_PEM_END = '-----END X509 CRL-----';
+const DEFAULT_CRL_TIMEOUT = 5000;
+const DEFAULT_CRL_CACHE_TTL = 1000 * 60 * 60 * 24;
+const HTTP_NOT_FOUND = 404;
+const ALL_REASONS_MASK = 0x1FE;
+const CRL_SIGN_KEY_USAGE_MASK = 0x02;
+const defaultCRLCache = new Map();
+
+const getCRLDistributionPoints = (certificate) => {
+    const extension = certificate?.extensions?.find(ext => ext.extnID === CRL_DISTRIBUTION_POINTS_OID);
+    if(!extension) return [];
+
+    const crlDistributionPoints = parseExtensionValue(
+        extension,
+        CRLDistributionPoints,
+        'Unable to parse CRL Distribution Points'
+    );
+
+    return crlDistributionPoints.distributionPoints
+        .map(distributionPoint => ({
+            distributionPoint: distributionPoint,
+            urls: getDistributionPointUrls(distributionPoint),
+        }))
+        .filter(distributionPoint => distributionPoint.urls.length > 0);
+};
+
+const checkCertificateRevocation = async (certificate, issuerCertificate, options = {}) => {
+    const {
+        crlTimeout = DEFAULT_CRL_TIMEOUT,
+        crlCacheEnabled = true,
+        crlCacheTTL = DEFAULT_CRL_CACHE_TTL,
+        crlCache = defaultCRLCache,
+    } = options;
+    let distributionPoints;
+    try {
+        distributionPoints = getCRLDistributionPoints(certificate);
+    } catch(error) {
+        return {
+            checked: false,
+            revoked: false,
+            urls: [],
+            error: error.message,
+        };
+    }
+    const urls = getAllDistributionPointUrls(distributionPoints);
+
+    const result = {
+        checked: false,
+        revoked: false,
+        urls: urls,
+    };
+
+    if(urls.length === 0) return result;
+
+    const errors = [];
+    const supportedDistributionPoints = [];
+    for(const distributionPoint of distributionPoints) {
+        if(hasDelegatedCRLIssuer(distributionPoint)) {
+            errors.push('Delegated CRL issuers are not supported');
+        } else {
+            supportedDistributionPoints.push(distributionPoint);
+        }
+    }
+    const supportedUrls = getAllDistributionPointUrls(supportedDistributionPoints);
+
+    if(supportedUrls.length === 0) {
+        if(errors.length > 0) result.error = errors.join('; ');
+        return result;
+    }
+
+    let crlIssuerCertificate;
+    try {
+        crlIssuerCertificate = getIssuerCertificate(issuerCertificate);
+        validateCRLIssuerCertificate(crlIssuerCertificate);
+    } catch(error) {
+        result.error = error.message;
+        return result;
+    }
+
+    const crlSources = getCachedCRLResultsByUrl(supportedUrls, {
+        crlCacheEnabled: crlCacheEnabled,
+        crlCache: crlCache,
+    });
+
+    const evaluationState = {
+        coveredReasonsMask: 0,
+        errors: errors,
+    };
+    const crlEvaluationOptions = {
+        crlCacheEnabled: crlCacheEnabled,
+        crlCache: crlCache,
+        crlCacheTTL: crlCacheTTL,
+    };
+
+    for(const crlResult of crlSources.cachedResults) {
+        const revocationResult = await evaluateCRLResult(crlResult, supportedDistributionPoints, certificate, crlIssuerCertificate, urls, crlEvaluationOptions, evaluationState);
+        if(revocationResult) {
+            return revocationResult;
+        }
+    }
+
+    const pendingResultsByUrl = getPendingCRLResultsByUrl(crlSources.uncachedUrls, {
+        crlTimeout: crlTimeout,
+        crlCacheEnabled: crlCacheEnabled,
+        crlCache: crlCache,
+        crlCacheTTL: crlCacheTTL,
+    });
+
+    while(pendingResultsByUrl.size > 0) {
+        const crlResult = await getNextCRLResult(pendingResultsByUrl);
+        const revocationResult = await evaluateCRLResult(crlResult, supportedDistributionPoints, certificate, crlIssuerCertificate, urls, crlEvaluationOptions, evaluationState);
+        if(revocationResult) {
+            cachePendingCRLResults(pendingResultsByUrl, supportedDistributionPoints, certificate, crlIssuerCertificate, urls, crlEvaluationOptions);
+            return revocationResult;
+        }
+    }
+
+    if(evaluationState.coveredReasonsMask > 0 && !isCompleteCRLCoverage(evaluationState.coveredReasonsMask)) {
+        evaluationState.errors.push('CRL coverage is incomplete');
+    }
+
+    if(evaluationState.errors.length > 0) result.error = evaluationState.errors.join('; ');
+    return result;
+};
+
+const getCachedCRLResultsByUrl = (urls, options) => {
+    const {
+        crlCacheEnabled,
+        crlCache,
+    } = options;
+    const cachedResults = [];
+    const uncachedUrls = [];
+
+    for(const url of urls) {
+        const cached = crlCacheEnabled ? getCachedCRL(crlCache, url) : null;
+        if(cached?.error) {
+            cachedResults.push({
+                url: url,
+                error: new Error(cached.error),
+            });
+            continue;
+        }
+        if(cached?.crl) {
+            cachedResults.push({
+                url: url,
+                crl: cached.crl,
+                fromCache: true,
+            });
+            continue;
+        }
+
+        uncachedUrls.push(url);
+    }
+
+    return {
+        cachedResults: cachedResults,
+        uncachedUrls: uncachedUrls,
+    };
+};
+
+const getPendingCRLResultsByUrl = (urls, options) => {
+    const {
+        crlTimeout,
+        crlCacheEnabled,
+        crlCache,
+        crlCacheTTL,
+    } = options;
+    const pendingResultsByUrl = new Map();
+
+    for(const url of urls) {
+        if(typeof fetch !== 'function') continue;
+
+        pendingResultsByUrl.set(url, fetchAndParseCRL(url, crlTimeout)
+            .then(crl => ({
+                url: url,
+                crl: crl,
+                fromCache: false,
+            }))
+            .catch(error => {
+                if(error.status === HTTP_NOT_FOUND && crlCacheEnabled) {
+                    cacheCRLError(crlCache, url, error, crlCacheTTL);
+                }
+                return {
+                    url: url,
+                    error: error,
+                };
+            }));
+    }
+
+    return pendingResultsByUrl;
+};
+
+const getNextCRLResult = async (pendingResultsByUrl) => {
+    const result = await Promise.race(pendingResultsByUrl.values());
+    pendingResultsByUrl.delete(result.url);
+    return result;
+};
+
+const cachePendingCRLResults = (pendingResultsByUrl, distributionPoints, certificate, crlIssuerCertificate, urls, options) => {
+    if(!options.crlCacheEnabled) return;
+
+    const pendingResults = [...pendingResultsByUrl.values()];
+    if(pendingResults.length === 0) return;
+
+    for(const pendingResult of pendingResults) {
+        pendingResult
+            .then(crlResult => evaluateCRLResult(
+                crlResult,
+                distributionPoints,
+                certificate,
+                crlIssuerCertificate,
+                urls,
+                options,
+                { coveredReasonsMask: 0, errors: [] }
+            ))
+            .catch(() => {});
+    }
+};
+
+const evaluateCRLResult = async (crlResult, distributionPoints, certificate, crlIssuerCertificate, urls, options, state) => {
+    const {
+        crlCacheEnabled,
+        crlCache,
+        crlCacheTTL,
+    } = options;
+    const {
+        url,
+        crl,
+        fromCache = false,
+        error,
+    } = crlResult;
+
+    if(error) {
+        state.errors.push(error.message);
+        return null;
+    }
+
+    try {
+        ensurePKIjsCryptoEngine();
+        const signatureValid = await crl.verify({
+            issuerCertificate: crlIssuerCertificate,
+        });
+        if(!signatureValid) {
+            state.errors.push(`Invalid CRL signature for ${url}`);
+            return null;
+        }
+
+        const matchingDistributionPoints = distributionPoints.filter(distributionPoint => distributionPoint.urls.includes(url));
+        for(const distributionPoint of matchingDistributionPoints) {
+            const coverage = getCRLCoverage(certificate, crl, distributionPoint.distributionPoint);
+            if(!coverage.coversCertificate) {
+                state.errors.push(`${coverage.error} for ${url}`);
+                continue;
+            }
+
+            if(isCRLNotYetValid(crl)) {
+                state.errors.push(`CRL is not yet valid for ${url}`);
+                continue;
+            }
+
+            const stale = isCRLStale(crl);
+            if(!stale && !fromCache && crlCacheEnabled) cacheCRL(crlCache, url, crl, crlCacheTTL);
+
+            if(crl.isCertificateRevoked(certificate)) {
+                return {
+                    checked: true,
+                    revoked: true,
+                    urls: urls,
+                    url: url,
+                };
+            }
+
+            if(isDeltaCRL(crl)) {
+                state.errors.push(`Delta CRL cannot establish non-revoked status for ${url}`);
+                continue;
+            }
+
+            if(!stale) {
+                state.coveredReasonsMask |= coverage.reasonsMask;
+                if(isCompleteCRLCoverage(state.coveredReasonsMask)) {
+                    return {
+                        checked: true,
+                        revoked: false,
+                        urls: urls,
+                        url: url,
+                    };
+                }
+                continue;
+            }
+
+            state.errors.push(`CRL is stale for ${url}`);
+        }
+    } catch(error) {
+        state.errors.push(error.message);
+    }
+
+    return null;
+};
+
+const getDistributionPointUrls = (distributionPoint) => {
+    if(!Array.isArray(distributionPoint.distributionPoint)) return [];
+
+    const urls = [];
+    for(const generalName of distributionPoint.distributionPoint) {
+        if(generalName.type === 6 && typeof generalName.value === 'string') {
+            urls.push(generalName.value);
+        }
+    }
+    return [...new Set(urls)];
+};
+
+const hasDelegatedCRLIssuer = (distributionPoint) => {
+    return distributionPoint.distributionPoint.cRLIssuer?.length > 0;
+};
+
+const getAllDistributionPointUrls = (distributionPoints) => {
+    const urls = [];
+    for(const distributionPoint of distributionPoints) {
+        urls.push(...distributionPoint.urls);
+    }
+    return [...new Set(urls)];
+};
+
+const getIssuerCertificate = (issuerCertificate) => {
+    if(issuerCertificate instanceof Certificate) return issuerCertificate;
+    if(issuerCertificate?.parsedCertificate instanceof Certificate) return issuerCertificate.parsedCertificate;
+    if(typeof issuerCertificate === 'string') return parsePemCertificate(issuerCertificate);
+    if(typeof issuerCertificate?.data === 'string') return parsePemCertificate(issuerCertificate.data);
+    throw new Error('Issuer certificate is required to verify CRL signature');
+};
+
+const validateCRLIssuerCertificate = (issuerCertificate) => {
+    if(issuerCertificate.version !== 2) return;
+
+    const keyUsage = issuerCertificate.extensions?.find(ext => ext.extnID === KEY_USAGE_OID);
+    if(!keyUsage) throw new Error('CRL issuer certificate key usage does not allow CRL signing');
+
+    const keyUsageValue = asn1js.fromBER(keyUsage.extnValue.valueBlock.valueHex);
+    if(keyUsageValue.offset === -1) throw new Error('Unable to parse CRL issuer certificate key usage');
+
+    const keyUsageBytes = new Uint8Array(keyUsageValue.result.valueBlock.valueHexView || keyUsageValue.result.valueBlock.valueHex || []);
+    if(!(keyUsageBytes[0] & CRL_SIGN_KEY_USAGE_MASK)) {
+        throw new Error('CRL issuer certificate key usage does not allow CRL signing');
+    }
+};
+
+const ensurePKIjsCryptoEngine = () => {
+    try {
+        getCrypto(true);
+    } catch(error) {
+        if(!globalThis.crypto?.subtle) throw error;
+        setEngine('webcrypto', new CryptoEngine({ name: 'webcrypto', crypto: globalThis.crypto }));
+    }
+};
+
+const getCRLCoverage = (certificate, crl, distributionPoint) => {
+    if(!crl.issuer.isEqual(certificate.issuer)) {
+        return {
+            coversCertificate: false,
+            error: 'CRL issuer does not match certificate issuer',
+        };
+    }
+
+    const issuingDistributionPoint = getIssuingDistributionPoint(crl);
+    const issuingDistributionPointCoverage = getIssuingDistributionPointCoverage(
+        certificate,
+        issuingDistributionPoint,
+        distributionPoint
+    );
+    if(!issuingDistributionPointCoverage.coversCertificate) return issuingDistributionPointCoverage;
+
+    const distributionPointReasons = getReasonMask(distributionPoint.reasons);
+    const crlReasons = issuingDistributionPoint?.onlySomeReasons === undefined
+        ? ALL_REASONS_MASK
+        : getReasonMaskFromBytes(new Uint8Array([issuingDistributionPoint.onlySomeReasons]));
+    const reasonsMask = distributionPointReasons & crlReasons;
+
+    if(reasonsMask === 0) {
+        return {
+            coversCertificate: false,
+            error: 'CRL reason scope does not cover certificate distribution point',
+        };
+    }
+
+    return {
+        coversCertificate: true,
+        reasonsMask: reasonsMask,
+    };
+};
+
+const getIssuingDistributionPointCoverage = (certificate, issuingDistributionPoint, distributionPoint) => {
+    if(!issuingDistributionPoint) {
+        return {
+            coversCertificate: true,
+        };
+    }
+
+    if(issuingDistributionPoint.indirectCRL) {
+        return {
+            coversCertificate: false,
+            error: 'Indirect CRLs are not supported',
+        };
+    }
+
+    if(issuingDistributionPoint.onlyContainsAttributeCerts) {
+        return {
+            coversCertificate: false,
+            error: 'CRL only covers attribute certificates',
+        };
+    }
+
+    const certificateIsCA = isCertificateCA(certificate);
+    if(issuingDistributionPoint.onlyContainsCACerts && !certificateIsCA) {
+        return {
+            coversCertificate: false,
+            error: 'CRL only covers CA certificates',
+        };
+    }
+
+    if(issuingDistributionPoint.onlyContainsUserCerts && certificateIsCA) {
+        return {
+            coversCertificate: false,
+            error: 'CRL only covers user certificates',
+        };
+    }
+
+    if(issuingDistributionPoint.distributionPoint) {
+        const crlDistributionPointNames = getDistributionPointNameKeys(issuingDistributionPoint.distributionPoint);
+        const certificateDistributionPointNames = getDistributionPointNameKeys(distributionPoint.distributionPoint);
+        if(!hasSharedName(crlDistributionPointNames, certificateDistributionPointNames)) {
+            return {
+                coversCertificate: false,
+                error: 'CRL distribution point scope does not match certificate distribution point',
+            };
+        }
+    }
+
+    return {
+        coversCertificate: true,
+    };
+};
+
+const getIssuingDistributionPoint = (crl) => {
+    const extension = crl.crlExtensions?.extensions?.find(ext => ext.extnID === ISSUING_DISTRIBUTION_POINT_OID);
+    if(!extension) return null;
+    return parseExtensionValue(
+        extension,
+        IssuingDistributionPoint,
+        'Unable to parse Issuing Distribution Point'
+    );
+};
+
+const getReasonMask = (reasons) => {
+    if(!reasons) return ALL_REASONS_MASK;
+    const bytes = new Uint8Array(reasons.valueBlock.valueHexView || reasons.valueBlock.valueHex || []);
+    return getReasonMaskFromBytes(bytes);
+};
+
+const getReasonMaskFromBytes = (bytes) => {
+    let mask = 0;
+    for(let byteIndex = 0; byteIndex < bytes.length; byteIndex++) {
+        for(let bitIndex = 0; bitIndex < 8; bitIndex++) {
+            if(bytes[byteIndex] & (0x80 >> bitIndex)) {
+                mask |= 1 << ((byteIndex * 8) + bitIndex);
+            }
+        }
+    }
+    return mask & ALL_REASONS_MASK;
+};
+
+const isCompleteCRLCoverage = (reasonsMask) => {
+    return (reasonsMask & ALL_REASONS_MASK) === ALL_REASONS_MASK;
+};
+
+const isCertificateCA = (certificate) => {
+    const extension = certificate?.extensions?.find(ext => ext.extnID === BASIC_CONSTRAINTS_OID);
+    if(!extension) return false;
+
+    try {
+        const basicConstraints = parseExtensionValue(
+            extension,
+            BasicConstraints,
+            'Unable to parse Basic Constraints'
+        );
+        return !!basicConstraints.cA;
+    } catch(error) {
+        return false;
+    }
+};
+
+const getDistributionPointNameKeys = (distributionPointName) => {
+    if(!distributionPointName) return [];
+    if(Array.isArray(distributionPointName)) {
+        return distributionPointName
+            .map(generalName => getGeneralNameKey(generalName));
+    }
+    if(typeof distributionPointName.toSchema === 'function') {
+        return [`rdn:${bufferToHex(distributionPointName.toSchema().toBER(false))}`];
+    }
+    return [JSON.stringify(distributionPointName)];
+};
+
+const getGeneralNameKey = (generalName) => {
+    if(generalName?.type === 6 && typeof generalName.value === 'string') {
+        return `uri:${generalName.value}`;
+    }
+    if(typeof generalName?.toSchema === 'function') {
+        return `asn1:${bufferToHex(generalName.toSchema().toBER(false))}`;
+    }
+    return JSON.stringify(generalName);
+};
+
+const hasSharedName = (firstNames, secondNames) => {
+    if(firstNames.length === 0 || secondNames.length === 0) return false;
+    const secondNameSet = new Set(secondNames);
+    return firstNames.some(name => secondNameSet.has(name));
+};
+
+const bufferToHex = (buffer) => {
+    return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const parseExtensionValue = (extension, ExtensionValue, errorMessage) => {
+    if(extension.parsedValue instanceof ExtensionValue) return extension.parsedValue;
+
+    const asn1 = asn1js.fromBER(extension.extnValue.valueBlock.valueHex);
+    if(asn1.offset === -1) throw new Error(errorMessage);
+    return new ExtensionValue({ schema: asn1.result });
+};
+
+const getCachedCRL = (crlCache, url) => {
+    const cached = crlCache.get(url);
+    if(!cached) return null;
+    if(cached.expiresAt <= Date.now()) {
+        crlCache.delete(url);
+        return null;
+    }
+    return cached;
+};
+
+const cacheCRL = (crlCache, url, crl, ttl) => {
+    const expiresAt = getCRLCacheExpiration(crl, ttl);
+    if(expiresAt <= Date.now()) return;
+    crlCache.set(url, {
+        crl: crl,
+        expiresAt: expiresAt,
+    });
+};
+
+const cacheCRLError = (crlCache, url, error, ttl) => {
+    const expiresAt = Date.now() + ttl;
+    if(expiresAt <= Date.now()) return;
+    crlCache.set(url, {
+        error: error.message,
+        expiresAt: expiresAt,
+    });
+};
+
+const getCRLCacheExpiration = (crl, ttl) => {
+    const ttlExpiration = Date.now() + ttl;
+    if(!crl.nextUpdate) return ttlExpiration;
+    return Math.min(ttlExpiration, crl.nextUpdate.value.getTime());
+};
+
+const isCRLNotYetValid = (crl) => {
+    return crl.thisUpdate.value > new Date();
+};
+
+const isCRLStale = (crl) => {
+    return !!crl.nextUpdate && crl.nextUpdate.value < new Date();
+};
+
+const isDeltaCRL = (crl) => {
+    return !!crl.crlExtensions?.extensions?.some(ext => ext.extnID === DELTA_CRL_INDICATOR_OID);
+};
+
+const fetchAndParseCRL = async (url, timeout) => {
+    const crlBytes = await fetchCRL(url, timeout);
+    return parseCRL(crlBytes);
+};
+
+const fetchCRL = async (url, timeout) => {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), timeout) : null;
+
+    try {
+        const response = await fetch(url, {
+            signal: controller?.signal,
+        });
+        if(!response.ok) {
+            const error = new Error(`CRL request failed with HTTP ${response.status}`);
+            error.status = response.status;
+            throw error;
+        }
+        return new Uint8Array(await response.arrayBuffer());
+    } finally {
+        if(timeoutId) clearTimeout(timeoutId);
+    }
+};
+
+const parseCRL = (bytes) => {
+    const textPrefix = new TextDecoder().decode(bytes.slice(0, CRL_PEM_BEGIN.length + 20));
+    const crlBytes = textPrefix.trimStart().startsWith(CRL_PEM_BEGIN)
+        ? pemCRLToBytes(new TextDecoder().decode(bytes))
+        : bytes;
+    const arrayBuffer = crlBytes.buffer.slice(crlBytes.byteOffset, crlBytes.byteOffset + crlBytes.byteLength);
+    const asn1 = asn1js.fromBER(arrayBuffer);
+    if(asn1.offset === -1) throw new Error('Unable to parse CRL');
+    return new CertificateRevocationList({ schema: asn1.result });
+};
+
+const pemCRLToBytes = (pem) => {
+    const start = pem.indexOf(CRL_PEM_BEGIN);
+    const end = pem.indexOf(CRL_PEM_END);
+    if(start === -1 || end === -1) throw new Error('Unable to parse PEM CRL');
+    const base64 = pem.slice(start + CRL_PEM_BEGIN.length, end).replace(/\s/g, '');
+    return base64ToUint8Array(base64);
+};
+
+const getDocumentTrustInfo = async (certificate, options = {}) => {
+    const { issuer, untrustedReasons } = options.registryEnabled === false
+        ? getUnavailableRegistryTrustInfo(certificate)
+        : await getRegistryTrustInfo(certificate);
+
+    if(!issuer) {
+        return {
+            issuer: null,
+            trusted: false,
+            untrustedReasons: untrustedReasons.length > 0 ? untrustedReasons : [UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND],
+        };
+    }
+
+    if(!isIssuerTrustedByTrustLists(issuer, options.trustLists || ALL_TRUST_LISTS)) {
+        untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
+    }
+
+    if(untrustedReasons.length === 0 && options.checkCRL) {
+        const revocation = await checkCertificateRevocation(certificate, issuer.certificate, options);
+        if(revocation.revoked) untrustedReasons.push(UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_REVOKED);
+    }
+
+    return {
+        issuer: issuer,
+        trusted: untrustedReasons.length === 0,
+        untrustedReasons: untrustedReasons,
+    };
+};
+
+const getUnavailableRegistryTrustInfo = (certificate) => {
+    return {
+        issuer: null,
+        untrustedReasons: [
+            certificate
+                ? UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND
+                : UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING
+        ],
+    };
+};
+
+const getRegistryTrustInfo = async (certificate) => {
+    const { issuer, untrustedReason } = await getIssuerForCertificate(certificate);
+    return {
+        issuer: issuer || null,
+        untrustedReasons: untrustedReason ? [untrustedReason] : [],
+    };
+};
+
+const isIssuerTrustedByTrustLists = (issuer, trustLists) => {
+    const requestedTrustLists = Array.isArray(trustLists) ? trustLists : [trustLists];
+    if(trustLists == ALL_TRUST_LISTS || requestedTrustLists.includes(ALL_TRUST_LISTS[0])) return true;
+    if(!Array.isArray(issuer.certificate?.trust_lists)) return false;
+    return issuer.certificate.trust_lists.some(trustList => requestedTrustLists.includes(trustList));
+};
+
 class OpenID4VPProtocolHelper {
     constructor() {
         this.protocol = Protocol.OPENID4VP;
@@ -756,7 +1481,7 @@ class OpenID4VPProtocolHelper {
                 if (formatClaims.length > 0) {
                     const credential = {
                         format,
-                        id: createCredentialId(format, documentType),
+                        id: createCredentialQueryId(format, documentType),
                         claims: formatClaims,
                         meta: {},
                     };
@@ -778,18 +1503,18 @@ class OpenID4VPProtocolHelper {
         return credentials;
     }
 
-    async verify(credentialData, trustLists, origin, nonce) {
+    async verify(credentialData, origin, nonce, options = {}) {
         const vpToken = credentialData.vp_token;
         for(const key in vpToken) {
-            if(CredentialId[key].format === CredentialFormat.MSO_MDOC) {
+            if(credentialQueryById[key]?.format === CredentialFormat.MSO_MDOC) {
                 //TODO: Support response with multiple credential formats in the future
-                return this._verifyMsoMdoc(vpToken[key], trustLists, origin, nonce);
+                return this._verifyMsoMdoc(vpToken[key], origin, nonce, options);
             }
         }
         throw new Error('Unsupported credential format');
     }
 
-    async _verifyMsoMdoc(tokens, trustLists, origin, nonce) {
+    async _verifyMsoMdoc(tokens, origin, nonce, options = {}) {
         const processedDocuments = [];
         const decodedTokens = [];
         const documents = [];
@@ -810,9 +1535,9 @@ class OpenID4VPProtocolHelper {
             documents.push(...decodedToken.documents);
         }
         for(const document of documents) {
-            const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            const issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
-            trusted = trusted && issuerTrusted;
+            const { claims: documentClaims, certificate, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
+            const trustInfo = await getDocumentTrustInfo(certificate, options);
+            trusted = trusted && trustInfo.trusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
@@ -820,11 +1545,12 @@ class OpenID4VPProtocolHelper {
             const processedDocument = {
                 claims: documentClaims,
                 valid: documentValid,
-                trusted: !!issuerTrusted,
+                trusted: trustInfo.trusted,
+                issuer: trustInfo.issuer,
                 document: document,
             };
-            if(issuer) processedDocument.issuer = issuer;
             if(!documentValid) processedDocument.invalidReasons = invalidReasons;
+            if(!trustInfo.trusted) processedDocument.untrustedReasons = trustInfo.untrustedReasons;
             processedDocuments.push(processedDocument);
         }
         return {
@@ -858,6 +1584,20 @@ class OpenID4VPProtocolHelper {
         // For dc_api, DeviceEngagementBytes and EReaderKeyBytes MUST be null
         const sessionTranscript = cbor2.encode([null, null, handover]);
         return sessionTranscript;
+    }
+}
+
+const createCredentialQueryId = (format, credentialType) => {
+    return `cred-${format.replace(/[^a-zA-Z0-9]/g, '_')}-${credentialType.replace(/[^a-zA-Z0-9]/g, '_')}`;
+};
+
+const credentialQueryById = {};
+for(const format of ProtocolFormats[Protocol.OPENID4VP]) {
+    for(const documentType of Object.values(DocumentType)) {
+        credentialQueryById[createCredentialQueryId(format, documentType)] = {
+            format: format,
+            documentType: documentType,
+        };
     }
 }
 
@@ -939,7 +1679,7 @@ class MDOCProtocolHelper {
         return bufferToBase64Url(encryptionInfo);
     }
 
-    async verify(credentialData, trustLists, origin, nonce, jwk) {
+    async verify(credentialData, origin, nonce, jwk, options = {}) {
         const response = credentialData.response;
         const decodedResponse = await decodeVpToken(response);
         if(!Array.isArray(decodedResponse) || decodedResponse[0] !== 'dcapi') {
@@ -951,7 +1691,7 @@ class MDOCProtocolHelper {
         }
         const sessionTranscript = await this._generateSessionTranscript(origin, nonce, jwk);
         const decrypted = await this._decryptCipherText(cipherText, enc, sessionTranscript, jwk);
-        return this._verifyMsoMdoc(decrypted.documents, trustLists, sessionTranscript);
+        return this._verifyMsoMdoc(decrypted.documents, sessionTranscript, options);
     }
 
     async _decryptCipherText(cipherText, enc, sessionTranscript, jwk) {
@@ -978,16 +1718,16 @@ class MDOCProtocolHelper {
         }
     }
 
-    async _verifyMsoMdoc(documents, trustLists, sessionTranscript) {
+    async _verifyMsoMdoc(documents, sessionTranscript, options = {}) {
         const processedDocuments = [];
         const claims = {};
         let trusted = true;
         let valid = true;
 
         for(const document of documents) {
-            const { claims: documentClaims, issuer, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            const issuerTrusted = issuer && (trustLists == ALL_TRUST_LISTS || issuer.certificate.trust_lists.some(tl => trustLists.includes(tl)));
-            trusted = trusted && issuerTrusted;
+            const { claims: documentClaims, certificate, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
+            const trustInfo = await getDocumentTrustInfo(certificate, options);
+            trusted = trusted && trustInfo.trusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
                 claims[key] = documentClaims[key];
@@ -995,11 +1735,12 @@ class MDOCProtocolHelper {
             const processedDocument = {
                 claims: documentClaims,
                 valid: documentValid,
-                trusted: !!issuerTrusted,
+                trusted: trustInfo.trusted,
+                issuer: trustInfo.issuer,
                 document: document,
             };
-            if(issuer) processedDocument.issuer = issuer;
             if(!documentValid) processedDocument.invalidReasons = invalidReasons;
+            if(!trustInfo.trusted) processedDocument.untrustedReasons = trustInfo.untrustedReasons;
             processedDocuments.push(processedDocument);
         }
         return {
@@ -1045,153 +1786,202 @@ const mdocProtocolHelper = new MDOCProtocolHelper();
  * A library to simplify digital ID verification using the W3C Digital Credentials API
  */
 
-/**
- * Creates request structure for digital credentials
- *
- * @param {Object} options - Configuration options
- * @param {Array<string>} options.documentTypes - Type(s) of documents to request
- * @param {Array<string>} options.claims - Array of Claim enum values to request
- * @param {string} options.nonce - Security nonce to use in the request
- * @param {Object} options.jwk - JSON Web Key to use for encryption
- * @returns {Object} Request parameters compatible with Digital Credentials API
- */
-const createCredentialsRequest = (options = {}) => {
-    const {
-        nonce = generateNonce(),
-        jwk,
-        documentTypes = [DocumentType.MOBILE_DRIVERS_LICENSE],
-        claims = [],
-    } = options;
-
-    // Normalize credential types to array
-    const types = Array.isArray(documentTypes) ? documentTypes : [documentTypes];
-
-    // Validate credential types
-    const validTypes = Object.values(DocumentType);
-    const invalidTypes = types.filter(type => !validTypes.includes(type));
-    if (invalidTypes.length > 0) {
-        throw new Error(`Invalid document types: ${invalidTypes.join(', ')}`);
+class Verifier {
+    constructor(options = {}) {
+        options = options || {};
+        this.registry = normalizeRegistryConfig(options.registry);
+        this.issuerCertificates = normalizeIssuerCertificates(options.issuerCertificates);
+        this.crl = normalizeCRLConfig(options.crl);
+        this.crlCache = new Map();
     }
 
-    // Validate claims
-    const validClaims = Object.values(Claim);
-    const invalidClaims = claims.filter(claim => !validClaims.includes(claim));
-    if (invalidClaims.length > 0) {
-        throw new Error(`Invalid claims: ${invalidClaims.join(', ')}`);
-    }
+    /**
+     * Creates request structure for digital credentials
+     *
+     * @param {Object} options - Configuration options
+     * @param {Array<string>} options.documentTypes - Type(s) of documents to request
+     * @param {Array<string>} options.claims - Array of Claim enum values to request
+     * @param {string} options.nonce - Security nonce to use in the request
+     * @param {Object} options.jwk - JSON Web Key to use for encryption
+     * @returns {Object} Request parameters compatible with Digital Credentials API
+     */
+    createCredentialsRequest(options = {}) {
+        const {
+            nonce = generateNonce(),
+            jwk,
+            documentTypes = [DocumentType.MOBILE_DRIVERS_LICENSE],
+            claims = [],
+        } = options;
 
-    // Create requests for both protocols
-    const requests = [];
+        // Normalize credential types to array
+        const types = Array.isArray(documentTypes) ? documentTypes : [documentTypes];
 
-    for (const protocol of Object.values(Protocol)) {
-        let request;
-        if(protocol === Protocol.OPENID4VP) {
-            request = openid4vpProtocolHelper.createRequest(types, claims, nonce);
-        } else if(protocol === Protocol.MDOC) {
-            request = mdocProtocolHelper.createRequest(types, claims, nonce, jwk);
+        // Validate credential types
+        const validTypes = Object.values(DocumentType);
+        const invalidTypes = types.filter(type => !validTypes.includes(type));
+        if (invalidTypes.length > 0) {
+            throw new Error(`Invalid document types: ${invalidTypes.join(', ')}`);
         }
-        if (request) requests.push(request);
+
+        // Validate claims
+        const validClaims = Object.values(Claim);
+        const invalidClaims = claims.filter(claim => !validClaims.includes(claim));
+        if (invalidClaims.length > 0) {
+            throw new Error(`Invalid claims: ${invalidClaims.join(', ')}`);
+        }
+
+        // Create requests for both protocols
+        const requests = [];
+
+        for (const protocol of Object.values(Protocol)) {
+            let request;
+            if(protocol === Protocol.OPENID4VP) {
+                request = openid4vpProtocolHelper.createRequest(types, claims, nonce);
+            } else if(protocol === Protocol.MDOC) {
+                request = mdocProtocolHelper.createRequest(types, claims, nonce, jwk);
+            }
+            if (request) requests.push(request);
+        }
+
+        // Return the Digital Credentials API compatible structure
+        return {
+            mediation: 'required',
+            digital: {
+                requests: requests
+            }
+        };
     }
 
-    // Return the Digital Credentials API compatible structure
+    /**
+     * Requests digital credentials from the user
+     *
+     * @param {Object} requestParams - Request parameters from createRequestParams
+     * @param {Object} options - Additional options for the request
+     * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
+     * @returns {Promise<Object>} Promise that resolves to credential data or rejects with error
+     */
+    async requestCredentials(requestParams, options = {}) {
+        const { timeout = 300000 } = options;
+
+        // Validate that we're in a browser environment
+        if (typeof window === 'undefined') {
+            throw new Error('getCredentials can only be called in a browser environment');
+        }
+
+        // Validate that the Digital Credentials API is available
+        const DigitalCredentialAPI = globalThis.DigitalCredential;
+        if (typeof navigator === 'undefined' || !navigator.credentials || typeof DigitalCredentialAPI === 'undefined') {
+            throw new Error('Digital Credentials API not supported in this browser');
+        }
+        if (typeof DigitalCredentialAPI.userAgentAllowsProtocol !== 'function') {
+            throw new Error('Digital Credentials protocol detection not supported in this browser');
+        }
+
+        const supportedRequest = requestParams.digital.requests.find(request => {
+            return DigitalCredentialAPI.userAgentAllowsProtocol(request.protocol);
+        });
+        if(!supportedRequest) {
+            throw new Error('No supported digital credential protocol available in this browser');
+        }
+
+        try {
+            // Create the credential request options following the official spec
+            const credentialRequestOptions = {
+                ...requestParams,
+                digital: {
+                    ...requestParams.digital,
+                    requests: [supportedRequest]
+                },
+                mediation: 'required',
+                signal: AbortSignal.timeout(timeout)
+            };
+
+            // Request the credential
+            const credential = await navigator.credentials.get(credentialRequestOptions);
+
+            if (!credential) {
+                throw new Error('No credential was provided by the user');
+            }
+
+            // Return the credential data
+            return {
+                id: credential.id,
+                type: credential.type,
+                data: credential.data,
+                protocol: credential.protocol,
+                timestamp: new Date().toISOString()
+            };
+
+        } catch (error) {
+            console.error('Error getting credentials', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Processes a digital credential response
+     *
+     * @param {Object} credentials - The credentials response from requestCredentials
+     * @param {Object} params - Verification params
+     * @param {string} params.origin - The origin of the request (for session transcript generation)
+     * @param {string} params.nonce - The nonce from the original request (for session transcript generation)
+     * @param {Object} params.jwk - The JWK used to encrypt the request
+     * @returns {Promise<Object>} Promise that resolves to the processed credential information
+     */
+    async processCredentials(credentials, params = {}) {
+        const {
+            origin = null,
+            nonce = null,
+            jwk = null,
+        } = params;
+        if (!credentials || typeof credentials !== 'object')
+            throw new Error('Invalid credential response');
+        if (!credentials.data)
+            throw new Error('Credential response missing data');
+
+        const verificationOptions = {
+            registryEnabled: this.registry.enabled,
+            trustLists: this.registry.trustLists,
+            checkCRL: this.crl.enabled,
+            crlTimeout: this.crl.timeout,
+            crlCacheEnabled: this.crl.cache.enabled,
+            crlCacheTTL: this.crl.cache.ttl,
+            crlCache: this.crlCache,
+        };
+
+        if(credentials.protocol === Protocol.OPENID4VP) {
+            return await openid4vpProtocolHelper.verify(credentials.data, origin, nonce, verificationOptions);
+        } else if(credentials.protocol === Protocol.MDOC) {
+            return await mdocProtocolHelper.verify(credentials.data, origin, nonce, jwk, verificationOptions);
+        } else {
+            throw new Error(`Unsupported protocol: ${credentials.protocol}`);
+        }
+    }
+}
+
+const normalizeRegistryConfig = (registry = {}) => {
+    registry = registry || {};
     return {
-        mediation: 'required',
-        digital: {
-            requests: requests
-        }
+        enabled: registry.enabled !== false,
+        trustLists: Array.isArray(registry.trustLists) ? [...registry.trustLists] : registry.trustLists || ALL_TRUST_LISTS,
     };
 };
 
-/**
- * Requests digital credentials from the user
- *
- * @param {Object} requestParams - Request parameters from createRequestParams
- * @param {Object} options - Additional options for the request
- * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
- * @returns {Promise<Object>} Promise that resolves to credential data or rejects with error
- */
-const requestCredentials = async (requestParams, options = {}) => {
-    const { timeout = 300000 } = options;
-
-    // Validate that we're in a browser environment
-    if (typeof window === 'undefined') {
-        throw new Error('getCredentials can only be called in a browser environment');
-    }
-
-    // Validate that the Digital Credentials API is available
-    if (!navigator.credentials) {
-        throw new Error('Digital Credentials API not supported in this browser');
-    }
-
-    //filter out requests that are not supported by the browser
-    requestParams.digital.requests = requestParams.digital.requests.filter(request => {
-        //TODO: Replace with DigitalCredentials.userAgentAllowsProtocol(request.protocol) once the API is available
-        const allowedProtocol = navigator.userAgent.includes('Safari') ? Protocol.MDOC : Protocol.OPENID4VP;
-        return request.protocol === allowedProtocol;
-        //return DigitalCredential.userAgentAllowsProtocol(request.protocol);
-    }).slice(0, 1);
-
-    try {
-        // Create the credential request options following the official spec
-        const credentialRequestOptions = {
-            ...requestParams,
-            mediation: 'required',
-            signal: AbortSignal.timeout(timeout)
-        };
-
-        // Request the credential
-        const credential = await navigator.credentials.get(credentialRequestOptions);
-
-        if (!credential) {
-            throw new Error('No credential was provided by the user');
-        }
-
-        // Return the credential data
-        return {
-            id: credential.id,
-            type: credential.type,
-            data: credential.data,
-            protocol: credential.protocol,
-            timestamp: new Date().toISOString()
-        };
-
-    } catch (error) {
-        console.error('Error getting credentials', error);
-        throw error;
-    }
+const normalizeIssuerCertificates = (issuerCertificates = []) => {
+    return Array.isArray(issuerCertificates) ? [...issuerCertificates] : [];
 };
 
-/**
- * Processes a digital credential response
- *
- * @param {Object} credentials - The credentials response from requestCredentials
- * @param {Object} params - Verification params
- * @param {Array<string>} params.trustLists - Names of trust lists to use for determining trust. Defaults to all
- * @param {string} params.origin - The origin of the request (for session transcript generation)
- * @param {string} params.nonce - The nonce from the original request (for session transcript generation)
- * @param {Object} params.jwk - The JWK used to encrypt the request
- * @returns {Promise<Object>} Promise that resolves to the processed credential information
- */
-const processCredentials = async (credentials, params = {}) => {
-    const {
-        trustLists = ALL_TRUST_LISTS,
-        origin = null,
-        nonce = null,
-        jwk = null
-    } = params;
-
-    if (!credentials || typeof credentials !== 'object')
-        throw new Error('Invalid credential response');
-    if (!credentials.data)
-        throw new Error('Credential response missing data');
-
-    if(credentials.protocol === Protocol.OPENID4VP) {
-        return await openid4vpProtocolHelper.verify(credentials.data, trustLists, origin, nonce);
-    } else if(credentials.protocol === Protocol.MDOC) {
-        return await mdocProtocolHelper.verify(credentials.data, trustLists, origin, nonce, jwk);
-    } else {
-        throw new Error(`Unsupported protocol: ${credentials.protocol}`);
-    }
+const normalizeCRLConfig = (crl = {}) => {
+    crl = crl || {};
+    const cache = crl.cache || {};
+    return {
+        enabled: crl.enabled === true,
+        timeout: crl.timeout,
+        cache: {
+            enabled: cache.enabled,
+            ttl: cache.ttl,
+        },
+    };
 };
 
 /**
@@ -1224,4 +2014,4 @@ const generateJWK = async () => {
     return jwk;
 };
 
-export { Claim, CredentialFormat, DocumentType, Protocol, ProtocolFormats, createCredentialsRequest, generateJWK, generateNonce, processCredentials, requestCredentials, setTestDataUsage };
+export { Claim, CredentialFormat, DocumentType, InvalidReason, Protocol, ProtocolFormats, UntrustedReason, Verifier, generateJWK, generateNonce, setTestDataUsage };

@@ -257,16 +257,16 @@
             </div>
         </div>
         
-        <!-- Test Data Toggle -->
+        <!-- Test Issuer Registry Toggle -->
         <div class="mb-6">
             <h3 class="text-lg font-semibold mb-3">Issuer Registry Settings</h3>
             <div class="bg-white rounded-lg p-4 border border-gray-200">
                 <label class="flex items-center">
                     <input type="checkbox" id="useTestData" class="rounded text-blue-600 mr-3">
                     <div>
-                        <span class="text-sm font-medium text-gray-700">Use Test Data</span>
+                        <span class="text-sm font-medium text-gray-700">Use Test Issuer Registry</span>
                         <p class="text-xs text-gray-500 mt-1">
-                            Enable using test issuer data from the 
+                            Use the test issuer dataset instead of the normal issuer dataset from
                             <a href="https://github.com/universal-verify/trusted-issuer-registry/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">trusted-issuer-registry</a>
                         </p>
                     </div>
@@ -280,14 +280,16 @@
             <p class="text-sm text-gray-600 mb-3">Here's the code that would be used to request the selected claims:</p>
             <div id="sampleScript" class="bg-gray-50 border border-gray-200 rounded-md p-4 font-mono text-sm overflow-x-auto whitespace-nowrap">
                 <div class="mb-2 text-gray-700">// Import the library</div>
-                <div class="mb-2"><span class="text-purple-600">import</span> { <span class="text-blue-600">createCredentialsRequest</span>, <span class="text-blue-600">requestCredentials</span>, <span class="text-blue-600">processCredentials</span>, <span class="text-blue-600">generateNonce</span>, <span class="text-blue-600">generateJWK</span>, <span class="text-blue-600">DocumentType</span>, <span class="text-blue-600">Claim</span> } <span class="text-purple-600">from</span> <span class="text-green-600">'id-verifier'</span>;</div>
+                <div class="mb-2"><span class="text-purple-600">import</span> { <span class="text-blue-600">Verifier</span>, <span class="text-blue-600">generateNonce</span>, <span class="text-blue-600">generateJWK</span>, <span class="text-blue-600">DocumentType</span>, <span class="text-blue-600">Claim</span> } <span class="text-purple-600">from</span> <span class="text-green-600">'id-verifier'</span>;</div>
+                <div class="mb-2">&nbsp;</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">verifier</span> = <span class="text-purple-600">new</span> <span class="text-blue-600">Verifier</span>();</div>
                 <div class="mb-2">&nbsp;</div>
                 <div class="mb-2 text-gray-700">// Generate required parameters</div>
                 <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">nonce</span> = <span class="text-blue-600">generateNonce</span>();</div>
                 <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">jwk</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">generateJWK</span>();</div>
                 <div class="mb-2">&nbsp;</div>
                 <div class="mb-2 text-gray-700">// Create request parameters</div>
-                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">requestParams</span> = <span class="text-blue-600">createCredentialsRequest</span>({</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">requestParams</span> = <span class="text-blue-600">verifier</span>.<span class="text-blue-600">createCredentialsRequest</span>({</div>
                 <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">documentTypes</span>: [<span id="documentTypesList" class="text-green-600">'org.iso.18013.5.1.mDL'</span>],</div>
                 <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">claims</span>: [<span id="claimsList" class="text-green-600">'givenName', 'familyName', 'ageOver21'</span>],</div>
                 <div class="mb-2">&nbsp;&nbsp;<span class="text-blue-600">nonce</span>,</div>
@@ -295,10 +297,10 @@
                 <div class="mb-2">});</div>
                 <div class="mb-2">&nbsp;</div>
                 <div class="mb-2 text-gray-700">// Request credentials</div>
-                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">credential</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">requestCredentials</span>(<span class="text-blue-600">requestParams</span>);</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">credential</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">verifier</span>.<span class="text-blue-600">requestCredentials</span>(<span class="text-blue-600">requestParams</span>);</div>
                 <div class="mb-2">&nbsp;</div>
                 <div class="mb-2 text-gray-700">// Process and verify the credential</div>
-                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">result</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">processCredentials</span>(<span class="text-blue-600">credential</span>, { <span class="text-blue-600">nonce</span>, <span class="text-blue-600">jwk</span>, <span class="text-blue-600">origin</span>: <span class="text-green-600">window.location.origin</span> });</div>
+                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">result</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">verifier</span>.<span class="text-blue-600">processCredentials</span>(<span class="text-blue-600">credential</span>, { <span class="text-blue-600">nonce</span>, <span class="text-blue-600">jwk</span>, <span class="text-blue-600">origin</span>: <span class="text-green-600">window.location.origin</span> });</div>
             </div>
         </div>
     </div>

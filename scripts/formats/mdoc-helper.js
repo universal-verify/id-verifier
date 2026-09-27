@@ -1,6 +1,5 @@
 import * as cbor2 from 'cbor2';
-import { getIssuer } from '../trusted-issuer-registry-helper.js';
-import { REVERSE_CLAIM_MAPPINGS, CredentialFormat } from '../constants.js';
+import { REVERSE_CLAIM_MAPPINGS, CredentialFormat, InvalidReason } from '../constants.js';
 import { parseX5Chain, x509ToWebCryptoKey } from '../certificate-helper.js';
 import { verifyCoseSign1, coseKeyToWebCryptoKey } from '../cose-helper.js';
 import { base64urlToUint8Array } from '../utils.js';
@@ -19,21 +18,20 @@ export const verifyDocument = async (document, sessionTranscript) => {
     const { valid, issuerAuthPayload, certificate, invalidReason } = await verifyIssuerAuth(issuerAuth);
     if(!valid) invalidReasons.push(invalidReason);
     const deviceValid = await verifyDeviceAuth(deviceSigned, issuerAuthPayload, sessionTranscript);
-    if(!deviceValid) invalidReasons.push('Failed to verify device authentication');
+    if(!deviceValid) invalidReasons.push(InvalidReason.DEVICE_AUTH_FAILED);
     let claimsValid = true;
     for(const namespace in nameSpaces) {
         for(const claim of nameSpaces[namespace]) {
             const claimValid = await setClaim(claims, docType, namespace, claim, issuerAuthPayload);
             if(!claimValid && claimsValid) {
                 claimsValid = false;
-                invalidReasons.push("Claim values don't match IssuerAuth value digests");
+                invalidReasons.push(InvalidReason.CLAIM_DIGEST_MISMATCH);
             }
         }
     }
-    const issuer = await getIssuer(certificate);
     return {
         claims: claims,
-        issuer: issuer,
+        certificate: certificate,
         valid: valid && deviceValid && claimsValid,
         invalidReasons: invalidReasons,
     };
@@ -45,32 +43,33 @@ async function verifyIssuerAuth(issuerAuth) {
     const protectedHeaders = await cbor2.decode(protectedHeadersRaw);
     const payload = await cbor2.decode(payloadRaw);
     const issuerAuthPayload = cbor2.decode(payload.contents); //This is the Mobile Security Object (MSO)
+    const coseAlg = protectedHeaders.get(1);
+    //https://datatracker.ietf.org/doc/rfc9360/
+    const x5bag = unprotectedHeaders.get(32);
+    const x5chain = unprotectedHeaders.get(33);
+    const x5t = unprotectedHeaders.get(34);
+    const x5u = unprotectedHeaders.get(35);
+    if(x5bag) {
+    } else if(x5chain) {
+        certificate = parseX5Chain(x5chain);
+    } else if(x5t) {
+    } else if(x5u) {
+    }
+
     const now = new Date();
     if(new Date(issuerAuthPayload.validityInfo.validFrom) > now) {
-        invalidReason = 'MSO is not yet valid';
+        invalidReason = InvalidReason.MSO_NOT_YET_VALID;
     } else if(new Date(issuerAuthPayload.validityInfo.validUntil) < now) {
-        invalidReason = 'MSO is expired';
+        invalidReason = InvalidReason.MSO_EXPIRED;
     }
     if(!invalidReason) {
-        const coseAlg = protectedHeaders.get(1);
-        //https://datatracker.ietf.org/doc/rfc9360/
-        const x5bag = unprotectedHeaders.get(32);
-        const x5chain = unprotectedHeaders.get(33);
-        const x5t = unprotectedHeaders.get(34);
-        const x5u = unprotectedHeaders.get(35);
-        if(x5bag) {
-        } else if(x5chain) {
-            certificate = parseX5Chain(x5chain);
-        } else if(x5t) {
-        } else if(x5u) {
-        }
         if(certificate) {
             const publicKey = await x509ToWebCryptoKey(certificate, coseAlg);
             const signatureValid = await verifyCoseSign1(issuerAuth, publicKey);
             if(!signatureValid)
-                invalidReason = 'IssuerAuth signature verification failed';
+                invalidReason = InvalidReason.ISSUER_AUTH_SIGNATURE_INVALID;
         } else {
-            invalidReason = 'No certificate found in IssuerAuth header';
+            invalidReason = InvalidReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING;
         }
     }
 

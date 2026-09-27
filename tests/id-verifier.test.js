@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { processCredentials } from '../scripts/id-verifier.js';
+import { Verifier, Claim, Protocol, InvalidReason, UntrustedReason } from '../scripts/id-verifier.js';
 
 const androidCredentials = {"id":"","type":"digital","data":{"response":"gmVkY2FwaaJjZW5jWEEE5UR9BCSTMpZ1r7zGAUiBeYwEkvVIuhRaVdmq7KndEQZp3V-CDzRq6sxtGHKku_iSUKPDdxxAyywQpDDJKJlGNWpjaXBoZXJUZXh0WQyjGchl2ZYr1toGhp-CCGXqiOiZVZkWhydfZFWXcMFItMdW-b-Dd6LEtRl4Ek4HRjqyXv87HAGmiR7Xonu6SmNPkRBw6K_lO9RHozgXIM9qwVFXZZqzm_FIuT4kOTmh1UpiUGZ2SVHm0GoTjc9WGTa-pmGK4XzCVW0scdviON2T6TklZcmhPohPeiPmkOKWDZD1zHHXHlBinE3L-0xBRUwOBIgGgpMjzZhqeQJzCzm3LrcnQ3bm9Gxz6wb6qcurmw3cc1mGf9w44xAeezu84eJyvcx3oeiaWq23qVwwclvH1al2MeiTI91v9lBeA2E6d1glWfksvUI9pwOT048qvodPhLL566G0E_hbqISHVlADnO6eGlZ9Uy5qwCULbC0INh3Y9x-3qFt9Czr7Y4gHRfpPSNcmkHmNt5XmeDAG7a1Jl6N2G1kWYTWY8K0dNg-TqN8UzxVwUj6RTXVJiDDh6NCsYoY-gZYjCjZk0IKeA86tT3WKHpmhSbKjgi0oTWJFYeUSvfUBGcsVbXEwWDoIPxsgIoIFOy3Kb36VQ0v_r34Ovq_luhvUACe9553D8LUEKLOgxjbGKYDsxFzS5fmApHWtl-SFnJfCfClSVpvSvf-eJ_sDHO7uJnDtOEf775D6nmRGA0SrXyzf38UUwuybmy8OZudE_d0wjBDvjRAqnjrxTk40W3OxCQnjvmeeewIED5f-NWxwhLqynNhvHk7nf-E2xd8--RxboJhkoPGAO16SK9KRvqCfdq58TERVsF5RPh4prZHVKPK9Ytxv-eX6ixYMdI4On2Lijxwn-RndQX169iQH1gkBAQOQFg7fULCzhcoOGYjhRvpaGwVIsv91-ZPzQJtYNQrVDkrVZpfc3uzdl3Hjh763xVLcD-BUOCL3wLvzGoLNL7fFtVWGGEFQMnRQyl7JaVTsAkiS8eY7ppY4SgdKnEMXxPAiBapZK33n1nzHawKyNodgzIDx2DSKaa2yDoq0JkTgu6XByJmN5QrA30vpm9QXm2jKvSFDfvyJ-Oem-H9dgydSCPoVYjOh5Y0KeI7t9pfaZvZhSO1Y4v6lyCnyEqzfy7S-xPwwZYZbLeXJYk5RS1lvgcCIvS1su-2IEpJPrEglfD8bAszanzDAponAPnIAQx6yy7-rYyU4UrbLuchw-8XEHKflG7R9iJS0fJMBwEnucTPKD3ga-N_LmF6Pn0sNXDzP-4_MUr0CZiySG5-vEf5eQdLA-m2J4CXUNol41BpOuWrQEYHioeEWmED6OT-sUM1foZMbcaAcx6KzoF7VOAoPTGy-vqHWJzH8my0ZOouIC_HdbhZYVGDu3Qx0GSKErsviq2oEgu8yY4CvbPC8C7hQpif3m-kDF_jhxg8kUpJacBxhoF2fPzikA10jkHnpWOwCxGduTqywVpqXYe8LhSeJxtl29W3Hnf-VhkktxyDHwQlB08hvXHaLJqOIoHSWBeOTIYHqJhe_QAmRUgLjZFPScofjY-Ej3p2DE3i8qEtcJEb1hv3wN-0q1ALmmspsLzfgG60rj5opCjy_-BfgiZwL9t5vUsOsjsOrej7XOxRTMV-6iTl5JoGJYdvHjJ3ZepgCgQkWxIX7FVv_8hx2MdO8VYzVFFs_NMZ4lF78X4gCKwlMVU_nmOS_e9i79xV_nLoBrmuFIxLc-tcP0yzOtPonWuXn6LxyBowdJoHjLhU0Br9f6G5_Nvt4KZWLSiTXglVbY3XIo-q5zFLidsNkmL2_eOKbixc7504nJ9oX82fJKxg9pIE3OsLl4Kx8doarXLDC9C3pqRdDsKZR2BHa4Qe-5J-qjpaTMudO8tJepy2-xIICDM9-NVFWPzEdO32ZusZdEydiTFN6sT97s9TwX4iwSkEnYv10hqdfEcoolTQihVDiGM6HtEenFl0TaORXHFoLE_2e_9zZ3SwTiINx073FHePODTRKig_NKNx8jciwa7lG-gFhs-PtROjHzN4dbJDj-cd2qTwjtqzi9zkaDmwinOVwI8PRPMJD5DiBQ3j6dtwFC63CJeh8UGN2NUNliQIDx5L2wVG_9woLNaiF9zVGUEwPDBEyxR4wFcHCMMRDVBN6hRRJICX32fnDjzYc2ku_Q15UjHg3NQ_OlIUZNeaXQxBfzqpBRHrkn4QYZeF2U4PlJw38VAQHF6ms6JnjEFDLJmobyWXK1MYqaFidbHdBkT7ZxOq1jxZIKdKVWArcYl1vKMsfmMmjQfyv4ppZXSuqAmix0tjxtZMJE1Njt8BQAKIMv5n0g2A2H1SrnU83TQ_aY_jNf7PrtJUAGy_VS3dh5wq_4SeHTjwoDE199FTYFmNXQqt5ftCfIINAw4-gRl6RErdTwx0fpFdRo3hmKqwEWqt5onkPFLl5TWYjvcSXpBqaIciXKX2lLzQVLzO5f_Bu4PiPPb2LbrgNnSi1VrmNgbwZd6-0LRb0mwwN0NlDbxOLrSze2BZA9YHwd1njKmBaXFPju7osX4K5VaVSqbZ7ZD6z-xTi6YMiY1CoFhWW5TtIfLqB2xRP0TuLSIzbMVX0B3_3ifLBU6XOkXo7xemuDN8-gtFLOo5bAJV83snmBXEjUlclRCgz-jrSNLeNJdxpmU_RRglgT1ZNaiGKAPUq3MGWNQmfWlZsGjz-fvrhjjvN1fGGjTH2dUzdgVe3TbTPO6XSZFGKARQseg9UQHpus_ExYnGYvJGPzD3FfRy0r2wNAdScqqeiRhIiCJMCv-FOg_075xoPtVyp08HCJKiOPvEM0W2vua4ippbWWlXKauaaXkejHwIyFyXSeqZObgeQz_5JC738E40j5JTdlRoqmEo7XNCvDvZE6VVG37fdmbrMB6RXaHmw-IGffyseBnvBRpHp4L5eO29JtIYGBbmiqJjZzvcTCZ9aZBnm3k1VZyomO4nEDkk7rHrI5gCOapWQpgb0jVaiqFB4uSZVCbDcDGbaUfs4gH5E3wli6usrCix7rkA67-iTGfRyuFZU3Pn_8IG4aHKMTkB-K3-d8ui3dPeFAhpL50Qd_EJNkqdkqRj0NPbeEvsOc51kRLqC4LB_ZWRGooqdjKuZTBKhapG7fVH190oFVgVLX86t9gfwhdfNQpvgu-IHen9O8fm1v5pCrq_oAUy4p98CoJbFyHlUVYGyvK_cQEyWCZlXSXGvyi_jrm-DZd855cyfPwM1OAsjAfS3goQ97XoBuiWW64QRTZU9oiKjE1lFp56se-8kfaHJ4aPjAGawMvq7QfCDTLfcbJhxd1Ta_DvXmN7QSgoyEp1Wi60h5tE40meZTkLYb8ZQaj7kGRDW4iMxXkV1F1gvMTNjL4BJ_GpMQx4_std4VIzGh6aZDZirtcX_FaqEP6AIyhrMbe6CX8qaU5CMJDSFNtbmAiQTFBnClmk9m2vHBiL9UCeD4qhaVZFfqDfwnTEVYOb5VpfKPhb1aTsQfqF9umoOzhZkApzMUoY9536wWUUnWN9ohpI-TJdDN7b24Ne-97GrHY2L2C0uXCXT6hEKYSPNnPAialuSk_G9wCF2GwHImOujqQZzQHMkdF18f1mO0QuiC0jfUWm5swQk4fRgbu_-I8sZHFOCSRpspD97mmwz1KUokPFZduTv4Fvzjbv7GDo4HDdTuGJ5y8qmRP4_k0M2K1Bb6YtVanrBR2UT0N6_30jJQn2wy9s0JwcdKw6QkKRI24wpfr7j210kTG5_f-4AKB8Gpn5TSuspHiW0TrThfC4MwD8tl5LuCQlvl1NGSkMYTDdM-bPHa16W2hRWadI8Collh-ZpzNKsgAJz7mI2ddYNAjhSEIEtRQqJ0PP1X3dWUmk5Rt81Qt3DkDpzi4sNkltG5Lk8s1sI9cHfJaLp1_DmlOHC48Ol_lpaAlmeb_QTWjl9WuvoAd19shtN7qVFO-_4YuddF5wd8QhjfQm9UBrDRLDulydtFEOEN0n-sPiGRND4SiNaL60If2z7yLVKyPrAv7qFH0nloTll8_g4rxnYWNpIO369JLcRD8Iq_3fjqYAaOODwt5JngePU8FK5-eT4nmMTlQ6NNmVYX_BFls_nsxhVnFdqJj2G3-i-vH6T85ky5_D7G_0WhbDXZSGhOsZSZIgAFoWi_KBmmsmAtHOJ_eezSVrs8Nc25Itab4Th3TBMnGdHHmMFUbtvrxJhuTDkpcaHhK-OUh9xsf4W5ciqroIZMYeETdBheIw6YJty6wDvclencYgs4ujpU05aK_RvlYR2D1UsMkGkDt3pWLmEdyH8vmlwsYA15ax5F1Hs6LPTf-OdbwS1MrE7bmTq5lycx0XKsNqzJnhrzyTgsuHyzWNK6JPTHUSm2Or3yMUaYlYTUNMCzw"},"protocol":"org-iso-mdoc","timestamp":"2025-08-07T19:43:23.653Z"};
 const androidParams = {"nonce":"c111d1f946129d75d78e5699db8438c3","origin":"https://10.0.2.2:8000","jwk":{"crv":"P-256","d":"alc5z82ICsACQDmMMiBuA3fyQ0utHa--SNh6w3534Ek","ext":true,"key_ops":["deriveKey","deriveBits"],"kty":"EC","x":"jgOzACBKyR0Bozuih_tyladUzv-J_N2UC-6Wl-rshuQ","y":"9oMW6zr3b7hfaVSWHEz1F08TlXj8aufRMYyzRE5dNxU"}};
@@ -8,17 +8,162 @@ const iosCredentials = {"id":"9d7a8af7-bcaa-43d3-871f-abc065d753f2","type":"digi
 const iosParams = {"nonce":"4ab62598e2a5250a4ff6abafa0f56857","origin":"https://192.168.1.34:8000","jwk":{"crv":"P-256","d":"zJ7QWcKLfP2Mjx6MJ0Ri68gFhQ2aiYQjips7tC3p1V0","ext":true,"key_ops":["deriveBits","deriveKey"],"kty":"EC","x":"oD3JhSWMIBz6dNuZL4o8GY75LDLhQwEVTgBu0HjQZLE","y":"XYdPtoUldmqbMhN7_DXqNvAO4VS3mJFvLRnTqGvTccI"}};
 
 test('processCredentials for Android', async () => {
-    assert.doesNotThrow(async () => {
-        const response = await processCredentials(androidCredentials, androidParams);
+    await withUnavailableRegistry(async () => {
+        const response = await new Verifier().processCredentials(androidCredentials, androidParams);
+
+        assert.equal(response.valid, false);
+        assert.equal(response.trusted, false);
         assert.equal(response.claims.given_name, 'Erika');
         assert.equal(response.claims.family_name, 'Mustermann');
         assert.equal(response.claims.age_over_21, true);
+        assert.equal(response.processedDocuments[0].issuer, null);
+        assert.deepEqual(response.processedDocuments[0].invalidReasons, [InvalidReason.MSO_EXPIRED]);
+        assert.deepEqual(response.processedDocuments[0].untrustedReasons, [UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND]);
     });
 });
 
 test('processCredentials for iOS', async () => {
-        const response = await processCredentials(iosCredentials, iosParams);
+    await withUnavailableRegistry(async () => {
+        const response = await new Verifier().processCredentials(iosCredentials, iosParams);
+
+        assert.equal(response.valid, false);
+        assert.equal(response.trusted, false);
         assert.equal(response.claims.given_name, 'Kelly');
         assert.equal(response.claims.family_name, 'Garcia');
         assert.equal(response.claims.age_over_21, true);
+        assert.equal(response.processedDocuments[0].issuer, null);
+        assert.deepEqual(response.processedDocuments[0].invalidReasons, [
+            InvalidReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
+            InvalidReason.DEVICE_AUTH_FAILED,
+        ]);
+        assert.deepEqual(response.processedDocuments[0].untrustedReasons, [UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING]);
+    });
 });
+
+test('Verifier stores registry and issuer certificate configuration', () => {
+    const issuerCertificates = [{ data: 'test-certificate' }];
+    const verifier = new Verifier({
+        registry: {
+            enabled: false,
+            trustLists: ['uv'],
+        },
+        issuerCertificates: issuerCertificates,
+        crl: {
+            enabled: true,
+        },
+    });
+
+    assert.deepEqual(verifier.registry, {
+        enabled: false,
+        trustLists: ['uv'],
+    });
+    assert.deepEqual(verifier.issuerCertificates, issuerCertificates);
+    assert.notEqual(verifier.issuerCertificates, issuerCertificates);
+    assert.equal(verifier.crl.enabled, true);
+});
+
+test('Verifier skips issuer registry fetching when registry is disabled', async () => {
+    let fetchCalled = false;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+        fetchCalled = true;
+        throw new Error('Unexpected fetch');
+    };
+    try {
+        const verifier = new Verifier({
+            registry: {
+                enabled: false,
+            },
+        });
+        const response = await verifier.processCredentials(androidCredentials, androidParams);
+
+        assert.equal(fetchCalled, false);
+        assert.equal(response.trusted, false);
+        assert.equal(response.processedDocuments[0].issuer, null);
+        assert.deepEqual(response.processedDocuments[0].untrustedReasons, [UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND]);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('requestCredentials uses DigitalCredential protocol support and prefers mdoc', async () => {
+    const verifier = new Verifier();
+    const requestParams = verifier.createCredentialsRequest({
+        nonce: androidParams.nonce,
+        jwk: androidParams.jwk,
+        claims: [Claim.GIVEN_NAME],
+    });
+
+    assert.deepEqual(requestParams.digital.requests.map(request => request.protocol), [
+        Protocol.MDOC,
+        Protocol.OPENID4VP,
+    ]);
+
+    await withMockedDigitalCredentialBrowser(async (credentialRequestOptions) => {
+        assert.deepEqual(credentialRequestOptions.digital.requests.map(request => request.protocol), [
+            Protocol.MDOC,
+        ]);
+        return {
+            id: 'test-credential',
+            type: 'digital',
+            data: { response: 'test-response' },
+            protocol: credentialRequestOptions.digital.requests[0].protocol,
+        };
+    }, async () => {
+        const credential = await verifier.requestCredentials(requestParams);
+
+        assert.equal(credential.protocol, Protocol.MDOC);
+        assert.equal(credential.data.response, 'test-response');
+    });
+});
+
+async function withUnavailableRegistry(callback) {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false });
+    try {
+        return await callback();
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+}
+
+async function withMockedDigitalCredentialBrowser(getCredential, callback) {
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const originalDigitalCredential = Object.getOwnPropertyDescriptor(globalThis, 'DigitalCredential');
+
+    Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: {},
+    });
+    Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        value: {
+            credentials: {
+                get: getCredential,
+            },
+        },
+    });
+    Object.defineProperty(globalThis, 'DigitalCredential', {
+        configurable: true,
+        value: {
+            userAgentAllowsProtocol: () => true,
+        },
+    });
+
+    try {
+        return await callback();
+    } finally {
+        restoreGlobalProperty('window', originalWindow);
+        restoreGlobalProperty('navigator', originalNavigator);
+        restoreGlobalProperty('DigitalCredential', originalDigitalCredential);
+    }
+}
+
+function restoreGlobalProperty(propertyName, descriptor) {
+    if(descriptor) {
+        Object.defineProperty(globalThis, propertyName, descriptor);
+    } else {
+        delete globalThis[propertyName];
+    }
+}
