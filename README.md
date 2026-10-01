@@ -34,7 +34,7 @@ try {
   const jwk = await generateJWK();
 
   // Create credentials request
-  const requestParams = verifier.createCredentialsRequest({
+  const requestParams = verifier.createWebCredentialsRequest({
     documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE],
     claims: [
       Claim.GIVEN_NAME,
@@ -217,7 +217,7 @@ Generates a JSON Web Key using the P-256 curve for encryption. Meant for backend
 const jwk = await generateJWK();
 ```
 
-#### `verifier.createCredentialsRequest(options)`
+#### `verifier.createWebCredentialsRequest(options)`
 
 Creates request parameters for digital credential verification. Meant for backend use
 
@@ -232,7 +232,7 @@ Creates request parameters for digital credential verification. Meant for backen
 
 **Example:**
 ```javascript
-const params = verifier.createCredentialsRequest({
+const params = verifier.createWebCredentialsRequest({
   documentTypes: [DocumentType.MOBILE_DRIVERS_LICENSE, DocumentType.PHOTO_ID],
   claims: [
     Claim.GIVEN_NAME,
@@ -250,7 +250,7 @@ const params = verifier.createCredentialsRequest({
 Requests digital credentials from the user (browser-only)
 
 **Parameters:**
-- `requestParams` (Object): Request parameters from `verifier.createCredentialsRequest`
+- `requestParams` (Object): Request parameters from `verifier.createWebCredentialsRequest`
 - `options` (Object):
   - `timeout` (number): Request timeout in milliseconds (default: 300000)
 

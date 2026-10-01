@@ -119,7 +119,7 @@ test('Verifier skips issuer registry fetching when trusted issuer registry is di
 
 test('requestCredentials passes all allowed DigitalCredential protocols', async () => {
     const verifier = new Verifier();
-    const requestParams = verifier.createCredentialsRequest({
+    const requestParams = verifier.createWebCredentialsRequest({
         nonce: androidParams.nonce,
         jwk: androidParams.jwk,
         claims: [Claim.GIVEN_NAME],
@@ -151,7 +151,7 @@ test('requestCredentials passes all allowed DigitalCredential protocols', async 
 
 test('requestCredentials filters disallowed DigitalCredential protocols', async () => {
     const verifier = new Verifier();
-    const requestParams = verifier.createCredentialsRequest({
+    const requestParams = verifier.createWebCredentialsRequest({
         nonce: androidParams.nonce,
         jwk: androidParams.jwk,
     });

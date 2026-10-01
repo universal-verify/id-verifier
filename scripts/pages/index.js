@@ -229,7 +229,7 @@ class IndexPage {
             const origin = window.location.origin;
 
             // Create request parameters using the user's configuration
-            const requestParams = this.verifier.createCredentialsRequest({
+            const requestParams = this.verifier.createWebCredentialsRequest({
                 documentTypes,
                 claims,
                 nonce,

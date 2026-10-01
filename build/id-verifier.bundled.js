@@ -29159,7 +29159,7 @@ class Verifier {
      * @param {Object} options.jwk - JSON Web Key to use for encryption
      * @returns {Object} Request parameters compatible with Digital Credentials API
      */
-    createCredentialsRequest(options = {}) {
+    createWebCredentialsRequest(options = {}) {
         const {
             nonce = generateNonce(),
             jwk,
@@ -29206,10 +29206,26 @@ class Verifier {
         };
     }
 
+    // createAndroidCredentialsRequest(options = {}) {
+    //     throw new Error('Android credential request creation is not implemented yet');
+    // }
+
+    // createAndroidProximityRequest(options = {}) {
+    //     throw new Error('Android proximity request creation is not implemented yet');
+    // }
+
+    // createIOSCredentialsRequest(options = {}) {
+    //     throw new Error('iOS credential request creation is not implemented yet');
+    // }
+
+    // createIOSProximityRequest(options = {}) {
+    //     throw new Error('iOS proximity request creation is not implemented yet');
+    // }
+
     /**
      * Requests digital credentials from the user
      *
-     * @param {Object} requestParams - Request parameters from createCredentialsRequest
+     * @param {Object} requestParams - Request parameters from createWebCredentialsRequest
      * @param {Object} options - Additional options for the request
      * @param {number} options.timeout - Request timeout in milliseconds (default: 300000)
      * @returns {Promise<Object>} Promise that resolves to credential data or rejects with error
