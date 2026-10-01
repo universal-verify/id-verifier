@@ -1616,12 +1616,18 @@ class OpenID4VPProtocolHelper {
     createRequest(documentTypes, claims, nonce) {
         const credentials = this._createQueryCredentials(documentTypes, claims);
         if (credentials.length > 0) {
+            const dcqlQuery = {
+                credentials,
+            };
+            if(credentials.length > 1) {
+                dcqlQuery.credential_sets = [{
+                    options: credentials.map(credential => [credential.id]),
+                }];
+            }
             return {
                 protocol: this.protocol,
                 data: {
-                    dcql_query: {
-                        credentials
-                    },
+                    dcql_query: dcqlQuery,
                     nonce: nonce,
                     response_mode: 'dc_api',
                     response_type: 'vp_token',
@@ -2052,10 +2058,10 @@ class Verifier {
             throw new Error('Digital Credentials protocol detection not supported in this browser');
         }
 
-        const supportedRequest = requestParams.digital.requests.find(request => {
+        const supportedRequests = requestParams.digital.requests.filter(request => {
             return DigitalCredentialAPI.userAgentAllowsProtocol(request.protocol);
         });
-        if(!supportedRequest) {
+        if(supportedRequests.length === 0) {
             throw new Error('No supported digital credential protocol available in this browser');
         }
 
@@ -2065,7 +2071,7 @@ class Verifier {
                 ...requestParams,
                 digital: {
                     ...requestParams.digital,
-                    requests: [supportedRequest]
+                    requests: supportedRequests
                 },
                 mediation: 'required',
                 signal: AbortSignal.timeout(timeout)

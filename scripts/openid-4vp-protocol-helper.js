@@ -11,12 +11,18 @@ class OpenID4VPProtocolHelper {
     createRequest(documentTypes, claims, nonce) {
         const credentials = this._createQueryCredentials(documentTypes, claims);
         if (credentials.length > 0) {
+            const dcqlQuery = {
+                credentials,
+            };
+            if(credentials.length > 1) {
+                dcqlQuery.credential_sets = [{
+                    options: credentials.map(credential => [credential.id]),
+                }];
+            }
             return {
                 protocol: this.protocol,
                 data: {
-                    dcql_query: {
-                        credentials
-                    },
+                    dcql_query: dcqlQuery,
                     nonce: nonce,
                     response_mode: 'dc_api',
                     response_type: 'vp_token',

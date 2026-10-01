@@ -106,10 +106,10 @@ export class Verifier {
             throw new Error('Digital Credentials protocol detection not supported in this browser');
         }
 
-        const supportedRequest = requestParams.digital.requests.find(request => {
+        const supportedRequests = requestParams.digital.requests.filter(request => {
             return DigitalCredentialAPI.userAgentAllowsProtocol(request.protocol);
         });
-        if(!supportedRequest) {
+        if(supportedRequests.length === 0) {
             throw new Error('No supported digital credential protocol available in this browser');
         }
 
@@ -119,7 +119,7 @@ export class Verifier {
                 ...requestParams,
                 digital: {
                     ...requestParams.digital,
-                    requests: [supportedRequest]
+                    requests: supportedRequests
                 },
                 mediation: 'required',
                 signal: AbortSignal.timeout(timeout)

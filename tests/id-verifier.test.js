@@ -117,7 +117,7 @@ test('Verifier skips issuer registry fetching when trusted issuer registry is di
     }
 });
 
-test('requestCredentials uses DigitalCredential protocol support and prefers mdoc', async () => {
+test('requestCredentials passes all allowed DigitalCredential protocols', async () => {
     const verifier = new Verifier();
     const requestParams = verifier.createCredentialsRequest({
         nonce: androidParams.nonce,
@@ -133,6 +133,7 @@ test('requestCredentials uses DigitalCredential protocol support and prefers mdo
     await withMockedDigitalCredentialBrowser(async (credentialRequestOptions) => {
         assert.deepEqual(credentialRequestOptions.digital.requests.map(request => request.protocol), [
             Protocol.MDOC,
+            Protocol.OPENID4VP,
         ]);
         return {
             id: 'test-credential',
@@ -148,6 +149,32 @@ test('requestCredentials uses DigitalCredential protocol support and prefers mdo
     });
 });
 
+test('requestCredentials filters disallowed DigitalCredential protocols', async () => {
+    const verifier = new Verifier();
+    const requestParams = verifier.createCredentialsRequest({
+        nonce: androidParams.nonce,
+        jwk: androidParams.jwk,
+    });
+
+    await withMockedDigitalCredentialBrowser(async (credentialRequestOptions) => {
+        assert.deepEqual(credentialRequestOptions.digital.requests.map(request => request.protocol), [
+            Protocol.MDOC,
+        ]);
+        return {
+            id: 'test-credential',
+            type: 'digital',
+            data: { response: 'test-response' },
+            protocol: credentialRequestOptions.digital.requests[0].protocol,
+        };
+    }, async () => {
+        const credential = await verifier.requestCredentials(requestParams);
+
+        assert.equal(credential.protocol, Protocol.MDOC);
+    }, {
+        allowedProtocols: [Protocol.MDOC],
+    });
+});
+
 async function withUnavailableRegistry(callback) {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async () => ({ ok: false });
@@ -158,7 +185,7 @@ async function withUnavailableRegistry(callback) {
     }
 }
 
-async function withMockedDigitalCredentialBrowser(getCredential, callback) {
+async function withMockedDigitalCredentialBrowser(getCredential, callback, options = {}) {
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
     const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
     const originalDigitalCredential = Object.getOwnPropertyDescriptor(globalThis, 'DigitalCredential');
@@ -175,10 +202,11 @@ async function withMockedDigitalCredentialBrowser(getCredential, callback) {
             },
         },
     });
+    const allowedProtocols = options.allowedProtocols || Object.values(Protocol);
     Object.defineProperty(globalThis, 'DigitalCredential', {
         configurable: true,
         value: {
-            userAgentAllowsProtocol: () => true,
+            userAgentAllowsProtocol: protocol => allowedProtocols.includes(protocol),
         },
     });
 

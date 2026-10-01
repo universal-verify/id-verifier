@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import OpenID4VPProtocolHelper from '../scripts/openid-4vp-protocol-helper.js';
+import { Claim, DocumentType, Protocol } from '../scripts/constants.js';
 
 test('OpenID4VPProtocolHelper._generateSessionTranscript', async () => {
     //Sourced from https://openid.github.io/OpenID4VP/openid-4-verifiable-presentations-wg-draft.html#appendix-B.2.6.2-14
@@ -11,4 +12,36 @@ test('OpenID4VPProtocolHelper._generateSessionTranscript', async () => {
     const sessionTranscript = await OpenID4VPProtocolHelper._generateSessionTranscript(origin, nonce, jwkThumbprint);
     const sessionTranscriptHex = Buffer.from(sessionTranscript).toString('hex');
     assert.equal(sessionTranscriptHex, expected);
+});
+
+test('OpenID4VPProtocolHelper.createRequest treats multiple document types as alternatives', () => {
+    const request = OpenID4VPProtocolHelper.createRequest(
+        [DocumentType.MOBILE_DRIVERS_LICENSE, DocumentType.PHOTO_ID],
+        [Claim.GIVEN_NAME],
+        'test-nonce'
+    );
+    const dcqlQuery = request.data.dcql_query;
+
+    assert.equal(request.protocol, Protocol.OPENID4VP);
+    assert.deepEqual(dcqlQuery.credentials.map(credential => credential.id), [
+        'cred-mso_mdoc-org_iso_18013_5_1_mDL',
+        'cred-mso_mdoc-org_iso_23220_photoid_1',
+    ]);
+    assert.deepEqual(dcqlQuery.credential_sets, [{
+        options: [
+            ['cred-mso_mdoc-org_iso_18013_5_1_mDL'],
+            ['cred-mso_mdoc-org_iso_23220_photoid_1'],
+        ],
+    }]);
+});
+
+test('OpenID4VPProtocolHelper.createRequest omits credential_sets for a single document type', () => {
+    const request = OpenID4VPProtocolHelper.createRequest(
+        [DocumentType.MOBILE_DRIVERS_LICENSE],
+        [Claim.GIVEN_NAME],
+        'test-nonce'
+    );
+
+    assert.equal(request.data.dcql_query.credentials.length, 1);
+    assert.equal(request.data.dcql_query.credential_sets, undefined);
 });
