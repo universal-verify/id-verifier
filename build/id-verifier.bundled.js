@@ -25178,19 +25178,34 @@ class TrustedIssuerRegistry {
         this._cacheTTL = options.cacheTTL ?? 1000 * 60 * 60 * 24; // 24 hours
         this._urlBase = options.useTestData ? TEST_REGISTRY_URL_BASE : REGISTRY_URL_BASE;
         this._cache = {};
+        this._deprecationCache = null;
     }
 
     async getEndOfLifeDate() {
+        if (this._cacheEnabled && this._deprecationCache && this._deprecationCache.expiresAt > Date.now()) return this._copyDate(this._deprecationCache.endOfLifeDate);
+
         const response = await fetch(`${this._urlBase}/deprecation_notice.json`);
+        let endOfLifeDate = null;
         if (response.ok) {
             const deprecationNotice = await response.json();
-            if(!deprecationNotice.version) return null;
-            let [major, minor] = deprecationNotice.version.split('.').map(Number);
-            let [currentMajor, currentMinor] = MINOR_VERSION.split('.').map(Number);
-            if(major < currentMajor || (major === currentMajor && minor < currentMinor)) return null;
-            return new Date(deprecationNotice.end_of_life * 1000);
+            if(deprecationNotice.version) {
+                const [major, minor] = deprecationNotice.version.split('.').map(Number);
+                const [currentMajor, currentMinor] = MINOR_VERSION.split('.').map(Number);
+                if(!(major < currentMajor || (major === currentMajor && minor < currentMinor))) endOfLifeDate = new Date(deprecationNotice.end_of_life * 1000);
+            }
+        } else if (response.status === 404) {
+            endOfLifeDate = null;
+        } else {
+            throw new Error(`Failed to fetch deprecation notice: ${response.status} ${response.statusText || ''}`.trim());
         }
-        return null;
+
+        if (this._cacheEnabled) {
+            this._deprecationCache = {
+                endOfLifeDate,
+                expiresAt: Date.now() + this._cacheTTL
+            };
+        }
+        return this._copyDate(endOfLifeDate);
     }
 
     async getIssuerFromX509AKI(x509aki) {
@@ -25208,11 +25223,15 @@ class TrustedIssuerRegistry {
                 };
             }
             return this._deepCopy(issuer);
-        } else if (this._cacheEnabled) {
-            this._cache[x509aki] = {
-                issuer: null,
-                expiresAt: Date.now() + this._cacheTTL
-            };
+        } else if (response.status === 404) {
+            if (this._cacheEnabled) {
+                this._cache[x509aki] = {
+                    issuer: null,
+                    expiresAt: Date.now() + this._cacheTTL
+                };
+            }
+        } else {
+            throw new Error(`Failed to fetch issuer ${x509aki}: ${response.status} ${response.statusText || ''}`.trim());
         }
 
         return null;
@@ -25236,6 +25255,10 @@ class TrustedIssuerRegistry {
 
     _deepCopy(obj) {
         return JSON.parse(JSON.stringify(obj));
+    }
+
+    _copyDate(date) {
+        return date ? new Date(date.getTime()) : null;
     }
 
     static minorVersion = MINOR_VERSION;
@@ -25535,10 +25558,9 @@ const normalizeLocalIssuerCertificate = (issuerCertificate) => {
 };
 
 let registry = new TrustedIssuerRegistry();
-const ONE_DAY = 24 * 60 * 60 * 1000;
+const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-let endOfLifeDate, priorWarning;
-let priorCheck = 0;
+let priorWarning = 0;
 
 /**
  * Sets whether to use the trusted-issuer-registry's test data
@@ -25546,9 +25568,7 @@ let priorCheck = 0;
  */
 const setTestDataUsage = (useTestData) => {
     registry = new TrustedIssuerRegistry({ useTestData });
-    priorCheck = 0;
     priorWarning = 0;
-    endOfLifeDate = null;
 };
 
 const getIssuerForCertificate = async (certificate) => {
@@ -25590,21 +25610,16 @@ const getIssuerForCertificate = async (certificate) => {
 };
 
 async function checkRegistryDeprecation() {
-    if(endOfLifeDate) {
-        if(priorWarning < Date.now() - ONE_DAY) logEndOfLifeWarning();
-    } else if(priorCheck < Date.now() - ONE_DAY) {
-        try {
-            endOfLifeDate = await registry.getEndOfLifeDate();
-        } catch(error) {
-            console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
-            console.error(error);
-        }
-        if(endOfLifeDate) logEndOfLifeWarning();
-        priorCheck = Date.now();
+    try {
+        const endOfLifeDate = await registry.getEndOfLifeDate();
+        if(endOfLifeDate && priorWarning < Date.now() - WARNING_INTERVAL_MS) logEndOfLifeWarning(endOfLifeDate);
+    } catch(error) {
+        console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
+        console.error(error);
     }
 }
 
-function logEndOfLifeWarning() {
+function logEndOfLifeWarning(endOfLifeDate) {
     if(endOfLifeDate.getTime() < Date.now()) {
         console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
     } else {

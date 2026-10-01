@@ -177,7 +177,7 @@ test('requestCredentials filters disallowed DigitalCredential protocols', async 
 
 async function withUnavailableRegistry(callback) {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => ({ ok: false });
+    globalThis.fetch = async () => ({ ok: false, status: 404, statusText: 'Not Found' });
     try {
         return await callback();
     } finally {

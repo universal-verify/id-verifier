@@ -3,10 +3,9 @@ import { UntrustedReason } from './constants.js';
 import { getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from './certificate-helper.js';
 
 let registry = new TrustedIssuerRegistry();
-const ONE_DAY = 24 * 60 * 60 * 1000;
+const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-let endOfLifeDate, priorWarning;
-let priorCheck = 0;
+let priorWarning = 0;
 
 /**
  * Sets whether to use the trusted-issuer-registry's test data
@@ -14,9 +13,7 @@ let priorCheck = 0;
  */
 export const setTestDataUsage = (useTestData) => {
     registry = new TrustedIssuerRegistry({ useTestData });
-    priorCheck = 0;
     priorWarning = 0;
-    endOfLifeDate = null;
 };
 
 export const getIssuerForCertificate = async (certificate) => {
@@ -58,21 +55,16 @@ export const getIssuerForCertificate = async (certificate) => {
 };
 
 async function checkRegistryDeprecation() {
-    if(endOfLifeDate) {
-        if(priorWarning < Date.now() - ONE_DAY) logEndOfLifeWarning();
-    } else if(priorCheck < Date.now() - ONE_DAY) {
-        try {
-            endOfLifeDate = await registry.getEndOfLifeDate();
-        } catch(error) {
-            console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
-            console.error(error);
-        }
-        if(endOfLifeDate) logEndOfLifeWarning();
-        priorCheck = Date.now();
+    try {
+        const endOfLifeDate = await registry.getEndOfLifeDate();
+        if(endOfLifeDate && priorWarning < Date.now() - WARNING_INTERVAL_MS) logEndOfLifeWarning(endOfLifeDate);
+    } catch(error) {
+        console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
+        console.error(error);
     }
 }
 
-function logEndOfLifeWarning() {
+function logEndOfLifeWarning(endOfLifeDate) {
     if(endOfLifeDate.getTime() < Date.now()) {
         console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
     } else {
