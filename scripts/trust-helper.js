@@ -1,11 +1,10 @@
-import { ALL_TRUST_LISTS, UntrustedReason } from './constants.js';
+import { TrustList, UntrustedReason, USER_PROVIDED_TRUST_LIST } from './constants.js';
 import { checkCertificateRevocation } from './crl-helper.js';
-import { getIssuerForCertificate } from './trusted-issuer-registry-helper.js';
+import { getIssuerForCertificate as getIssuerFromLocalCertificates } from './local-issuer-helper.js';
+import { getIssuerForCertificate as getIssuerFromRegistry } from './trusted-issuer-registry-helper.js';
 
 export const getDocumentTrustInfo = async (certificate, options = {}) => {
-    const { issuer, untrustedReasons } = options.registryEnabled === false
-        ? getUnavailableRegistryTrustInfo(certificate)
-        : await getRegistryTrustInfo(certificate);
+    const { issuer, untrustedReasons } = await getIssuerTrustInfo(certificate, options);
 
     if(!issuer) {
         return {
@@ -15,7 +14,7 @@ export const getDocumentTrustInfo = async (certificate, options = {}) => {
         };
     }
 
-    if(!isIssuerTrustedByTrustLists(issuer, options.trustLists || ALL_TRUST_LISTS)) {
+    if(!isIssuerTrustedByTrustLists(issuer, options.trustLists)) {
         untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
     }
 
@@ -31,28 +30,22 @@ export const getDocumentTrustInfo = async (certificate, options = {}) => {
     };
 };
 
-const getUnavailableRegistryTrustInfo = (certificate) => {
-    return {
-        issuer: null,
-        untrustedReasons: [
-            certificate
-                ? UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND
-                : UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING
-        ],
-    };
-};
+const getIssuerTrustInfo = async (certificate, options = {}) => {
+    let result = await getIssuerFromLocalCertificates(certificate, options.trustedIssuerCertificates);
 
-const getRegistryTrustInfo = async (certificate) => {
-    const { issuer, untrustedReason } = await getIssuerForCertificate(certificate);
+    if(!result.issuer && options.trustedIssuerRegistryEnabled !== false) {
+        result = await getIssuerFromRegistry(certificate);
+    }
+
     return {
-        issuer: issuer || null,
-        untrustedReasons: untrustedReason ? [untrustedReason] : [],
+        issuer: result.issuer || null,
+        untrustedReasons: result.untrustedReason ? [result.untrustedReason] : [],
     };
 };
 
 const isIssuerTrustedByTrustLists = (issuer, trustLists) => {
-    const requestedTrustLists = Array.isArray(trustLists) ? trustLists : [trustLists];
-    if(trustLists == ALL_TRUST_LISTS || requestedTrustLists.includes(ALL_TRUST_LISTS[0])) return true;
     if(!Array.isArray(issuer.certificate?.trust_lists)) return false;
-    return issuer.certificate.trust_lists.some(trustList => requestedTrustLists.includes(trustList));
+    if(issuer.certificate.trust_lists.includes(USER_PROVIDED_TRUST_LIST)) return true;
+    if(!trustLists) trustLists = Object.values(TrustList);
+    return issuer.certificate.trust_lists.some(trustList => trustLists.includes(trustList));
 };

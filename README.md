@@ -109,6 +109,14 @@ Supported claim fields that can be requested:
 - `PORTRAIT` - Portrait photo
 - `SIGNATURE` - Signature
 
+#### `TrustList`
+Supported trust lists that can be used in `trustedIssuerRegistry.trustLists`:
+
+| Constant | Value | Description |
+| --- | --- | --- |
+| `TrustList.UV` | `uv` | Issuers trusted by Universal Verify |
+| `TrustList.AAMVA_DTS` | `aamva_dts` | Issuers trusted by the American Association of Motor Vehicle Administrators |
+
 #### `InvalidReason`
 Stable string constants for `processedDocuments[].invalidReasons`, used when a document fails cryptographic or data-integrity verification.
 
@@ -140,10 +148,10 @@ Stable string constants for `processedDocuments[].untrustedReasons`, used when i
 Creates an ID verifier with optional verification configuration.
 
 **Constructor options:**
-- `registry` (Object): trusted-issuer-registry configuration
+- `trustedIssuerRegistry` (Object): trusted-issuer-registry configuration
   - `enabled` (boolean): Whether to use the issuer registry for trust evaluation (default: true)
   - `trustLists` (Array<string>): Names of registry trust lists to use for determining trust (default: all available)
-- `issuerCertificates` (Array): Issuer certificates supplied directly by the verifier (accepted for future use, not used yet)
+- `trustedIssuerCertificates` (Array<string|Object>): PEM-encoded X.509 issuer certificates trusted directly by the verifier. Use this when you want to trust issuers not listed in the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). To provide richer issuer details, entries can also be issuer objects.
 - `crl` (Object): CRL checking configuration
   - `enabled` (boolean): Whether to check document signer certificate CRLs for certificate revocation (default: false)
   - `timeout` (number): CRL request timeout in milliseconds (default: 5000)
@@ -153,16 +161,27 @@ Creates an ID verifier with optional verification configuration.
 
 Registry trust lists are sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Current values are `aamva_dts` and `uv` at the time of writing.
 
+Certificates passed through `trustedIssuerCertificates` are trusted directly and do not need to be included in `trustedIssuerRegistry.trustLists`. Their returned certificate metadata uses `trust_lists: ['user_provided']`.
+
 CRL checking affects whether a digital credential is trusted and is performed on a best-effort basis. CRLs that cannot be fetched or processed do not throw an error and do not impact trust.
 
 **Example:**
 ```javascript
 const verifier = new Verifier({
-  registry: {
+  trustedIssuerRegistry: {
     enabled: true,
-    trustLists: ['uv']
+    trustLists: [TrustList.UV]
   },
-  issuerCertificates: [],
+  trustedIssuerCertificates: [
+    '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
+    // or pass in issuer objects
+    {
+      data: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
+      entity_type: 'government',
+      entity_metadata: { country: 'CA', region: 'QC' },
+      display: { name: 'Québec SAAQ' }
+    }
+  ],
   crl: {
     enabled: true,
     timeout: 5000,

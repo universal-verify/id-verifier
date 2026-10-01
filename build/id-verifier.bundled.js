@@ -1,8 +1,12 @@
 /**
  * Supported trust lists
  */
+const TrustList = {
+    UV: 'uv',
+    AAMVA_DTS: 'aamva_dts',
+};
 
-const ALL_TRUST_LISTS = ['all_trust_lists'];
+const USER_PROVIDED_TRUST_LIST = 'user_provided';
 
 /**
  * Reasons a document may fail cryptographic or data-integrity verification
@@ -24862,6 +24866,68 @@ function initCryptoEngine() {
 
 initCryptoEngine();
 
+/**
+ * Convert a base64 string to a Uint8Array
+ * @param {string} base64 - The base64 string
+ * @returns {Uint8Array} - The Uint8Array
+ */
+const base64ToUint8Array$1 = (base64) => {
+    if(typeof Buffer == 'function') {
+        return new Uint8Array(Buffer.from(base64, 'base64'));
+    } else if(typeof atob === 'function') {
+        const raw = atob(base64);
+        const bytes = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) {
+            bytes[i] = raw.charCodeAt(i);
+        }
+        return bytes;
+    } else {
+        throw new Error('No base64 decoder available in this environment');
+    }
+};
+
+/**
+ * Convert a base64url string to a Uint8Array
+ * @param {string} base64url - The base64url string
+ * @returns {Uint8Array} - The Uint8Array
+ */
+const base64urlToUint8Array = (base64url) => {
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
+    return base64ToUint8Array$1(base64 + pad);
+};
+
+const bufferToBase64 = (input) => {
+    let bytes;
+    if (input instanceof Uint8Array) {
+        bytes = input;
+    } else if (input instanceof ArrayBuffer) {
+        bytes = new Uint8Array(input);
+    } else if (input.buffer instanceof ArrayBuffer) {
+        bytes = new Uint8Array(input.buffer).slice(input.byteOffset, input.byteOffset + input.byteLength);
+    } else {
+        throw new Error('Invalid input type');
+    }
+
+    // Convert to base64 string
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = typeof Buffer == 'function'
+        ? Buffer.from(binary, 'binary').toString('base64')
+        : btoa(binary);
+
+    return base64;
+};
+
+const bufferToBase64Url = (input) => {
+    const base64 = bufferToBase64(input);
+
+    // Convert base64 to base64url
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
 let gap = '';
 let indent = '';
 let rep;
@@ -24957,7 +25023,7 @@ const verifySignatureWithPem = async (pemKey, signature, data) => {
             .replace(/\s+/g, '');
 
         // Convert base64 to binary
-        const bytes = base64ToUint8Array$1(pemContent);
+        const bytes = base64ToUint8Array(pemContent);
 
         const asn1 = fromBER(bytes.buffer);
         const cert = new Certificate({ schema: asn1.result });
@@ -24989,7 +25055,7 @@ const verifySignatureWithPem = async (pemKey, signature, data) => {
             signatureBuffer = convertDerSignatureToRaw(signature, rsLen);
         } else {
             // For RSA, use as-is
-            signatureBuffer = base64ToUint8Array$1(signature).buffer;
+            signatureBuffer = base64ToUint8Array(signature).buffer;
         }
 
         const verified = await crypto.subtle.verify(webCryptoAlg, spkiKey, signatureBuffer, data);
@@ -25000,7 +25066,7 @@ const verifySignatureWithPem = async (pemKey, signature, data) => {
     }
 };
 
-function base64ToUint8Array$1(base64) {
+function base64ToUint8Array(base64) {
     if(typeof Buffer == 'function') {
         return new Uint8Array(Buffer.from(base64, 'base64'));
     } else {
@@ -25027,7 +25093,7 @@ function padOrTrimUint8Array(buf, length) {
 function convertDerSignatureToRaw(base64Signature, rsLen) {
     try {
         // Decode base64 to binary
-        const derBytes = base64ToUint8Array$1(base64Signature);
+        const derBytes = base64ToUint8Array(base64Signature);
 
         // Parse DER structure
         const asn1 = fromBER(derBytes.buffer);
@@ -25178,66 +25244,15 @@ class TrustedIssuerRegistry {
 //For CommonJS compatibility... boo CommonJS people, get with the times
 TrustedIssuerRegistry.verifySignatureWithPem = verifySignatureWithPem;
 
-/**
- * Convert a base64 string to a Uint8Array
- * @param {string} base64 - The base64 string
- * @returns {Uint8Array} - The Uint8Array
- */
-const base64ToUint8Array = (base64) => {
-    if(typeof Buffer == 'function') {
-        return new Uint8Array(Buffer.from(base64, 'base64'));
-    } else if(typeof atob === 'function') {
-        const raw = atob(base64);
-        const bytes = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) {
-            bytes[i] = raw.charCodeAt(i);
-        }
-        return bytes;
-    } else {
-        throw new Error('No base64 decoder available in this environment');
-    }
-};
-
-/**
- * Convert a base64url string to a Uint8Array
- * @param {string} base64url - The base64url string
- * @returns {Uint8Array} - The Uint8Array
- */
-const base64urlToUint8Array = (base64url) => {
-    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-    const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-    return base64ToUint8Array(base64 + pad);
-};
-
-const bufferToBase64 = (input) => {
-    let bytes;
-    if (input instanceof Uint8Array) {
-        bytes = input;
-    } else if (input instanceof ArrayBuffer) {
-        bytes = new Uint8Array(input);
-    } else if (input.buffer instanceof ArrayBuffer) {
-        bytes = new Uint8Array(input.buffer).slice(input.byteOffset, input.byteOffset + input.byteLength);
-    } else {
-        throw new Error('Invalid input type');
-    }
-
-    // Convert to base64 string
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = typeof Buffer == 'function'
-        ? Buffer.from(binary, 'binary').toString('base64')
-        : btoa(binary);
-
-    return base64;
-};
-
-const bufferToBase64Url = (input) => {
-    const base64 = bufferToBase64(input);
-
-    // Convert base64 to base64url
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const AUTHORITY_KEY_IDENTIFIER_OID = '2.5.29.35';
+const SUBJECT_KEY_IDENTIFIER_OID = '2.5.29.14';
+const SUBJECT_ATTRIBUTE_NAMES = {
+    '2.5.4.3': 'commonName',
+    '2.5.4.6': 'country',
+    '2.5.4.7': 'locality',
+    '2.5.4.8': 'state',
+    '2.5.4.10': 'organization',
+    '2.5.4.11': 'organizationalUnit',
 };
 
 /**
@@ -25261,7 +25276,7 @@ const parseX5Chain = (x5chain) => {
  */
 const getAuthorityKeyIdentifier = (x509Cert) => {
     if(!x509Cert) return null;
-    const authorityKeyId = x509Cert.extensions?.find(ext => ext.extnID === '2.5.29.35');
+    const authorityKeyId = x509Cert.extensions?.find(ext => ext.extnID === AUTHORITY_KEY_IDENTIFIER_OID);
     if (authorityKeyId) {
         try {
             const akidValue = fromBER(authorityKeyId.extnValue.valueBlock.valueHex);
@@ -25270,6 +25285,68 @@ const getAuthorityKeyIdentifier = (x509Cert) => {
             }
         } catch (e) {
             console.error('Could not parse AuthorityKeyIdentifier value', e);
+        }
+    }
+    return null;
+};
+
+/**
+ * Get the SubjectKeyIdentifier from a X.509 certificate
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {string} - The SubjectKeyIdentifier in base64url format
+ */
+const getSubjectKeyIdentifier = (x509Cert) => {
+    if(!x509Cert) return null;
+    const subjectKeyId = x509Cert.extensions?.find(ext => ext.extnID === SUBJECT_KEY_IDENTIFIER_OID);
+    if (subjectKeyId) {
+        try {
+            const skidValue = fromBER(subjectKeyId.extnValue.valueBlock.valueHex);
+            const valueHex = skidValue.result.valueBlock.valueHexView || skidValue.result.valueBlock.valueHex;
+            if (valueHex) return bufferToBase64Url(valueHex);
+        } catch (e) {
+            console.error('Could not parse SubjectKeyIdentifier value', e);
+        }
+    }
+    return null;
+};
+
+/**
+ * Get common subject attributes from a X.509 certificate
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {Object} - Common subject fields
+ */
+const getCertificateSubject = (x509Cert) => {
+    const subject = {};
+    const attributes = x509Cert?.subject?.typesAndValues || [];
+    for (const attribute of attributes) {
+        const name = SUBJECT_ATTRIBUTE_NAMES[attribute.type];
+        if(!name) continue;
+        const value = getAttributeValue(attribute);
+        if(value) subject[name] = value;
+    }
+    return subject;
+};
+
+/**
+ * Get a best-effort display name from a X.509 certificate subject
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {string|null} - The display name
+ */
+const getCertificateDisplayName = (x509Cert) => {
+    const subject = getCertificateSubject(x509Cert);
+    return subject.organization || subject.commonName || null;
+};
+
+const getAttributeValue = (attribute) => {
+    const valueBlock = attribute?.value?.valueBlock;
+    if(!valueBlock) return null;
+    if(typeof valueBlock.value === 'string') return valueBlock.value;
+    if(valueBlock.valueHexView || valueBlock.valueHex) {
+        const bytes = valueBlock.valueHexView || new Uint8Array(valueBlock.valueHex);
+        try {
+            return new TextDecoder().decode(bytes).replace(/\0/g, '');
+        } catch (error) {
+            return null;
         }
     }
     return null;
@@ -25312,7 +25389,7 @@ const parsePemCertificate = (pemString) => {
         .replace(/-----END CERTIFICATE-----/, '')
         .replace(/\s/g, '');
 
-    const bytes = base64ToUint8Array(pemContent);
+    const bytes = base64ToUint8Array$1(pemContent);
 
     const asn1 = fromBER(bytes.buffer);
     const cert = new Certificate({ schema: asn1.result });
@@ -25355,6 +25432,106 @@ const validateCertificateAgainstIssuer = async (certificate, issuerCertificates)
     }
 
     return null;
+};
+
+const normalizeIssuerCertificates = (trustedIssuerCertificates = []) => {
+    const localIssuers = {};
+    if(!Array.isArray(trustedIssuerCertificates)) return localIssuers;
+    for(const trustedIssuerCertificate of trustedIssuerCertificates) {
+        const certInfo = normalizeLocalIssuerCertificate(
+            trustedIssuerCertificate);
+        const subjectKeyIdentifier = certInfo.subjectKeyIdentifier;
+        if(!localIssuers[subjectKeyIdentifier])
+            localIssuers[subjectKeyIdentifier] = [];
+        localIssuers[subjectKeyIdentifier].push(certInfo.issuer);
+    }
+    return localIssuers;
+};
+
+const getIssuerForCertificate$1 = async (certificate, localIssuers = {})=>{
+    if(!certificate) {
+        return {
+            untrustedReason:UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
+        };
+    }
+    if(!hasLocalIssuers(localIssuers))
+        return { untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND};
+
+    const aki = getAuthorityKeyIdentifier(certificate);
+    if(!aki) {
+        return {
+            untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING,
+        };
+    }
+
+    const matchingIssuers = localIssuers[aki] || [];
+    const matchedCertificate = await validateCertificateAgainstIssuer(
+        certificate,
+        matchingIssuers.map(issuer => issuer.certificate)
+    );
+    if(!matchedCertificate) {
+        return {
+            untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
+        };
+    }
+
+    const issuer = matchingIssuers.find(
+        issuer => issuer.certificate === matchedCertificate);
+
+    return {
+        issuer: {
+            ...issuer,
+            display: { ...issuer.display },
+            entity_metadata: { ...issuer.entity_metadata },
+            certificate: { ...issuer.certificate },
+        },
+    };
+};
+
+const hasLocalIssuers = (localIssuers) => {
+    return localIssuers && typeof localIssuers === 'object'
+        && Object.keys(localIssuers).length > 0;
+};
+
+const normalizeLocalIssuerCertificate = (issuerCertificate) => {
+    const options = typeof issuerCertificate === 'string'
+        ? { data: issuerCertificate }
+        : { ...issuerCertificate };
+
+    if(typeof options.data !== 'string') {
+        throw new Error('trustedIssuerCertificates entries must be PEM strings or objects with a data PEM string');
+    }
+    if(options.format && options.format !== 'pem') {
+        throw new Error(`Unsupported issuer certificate format: ${options.format}`);
+    }
+
+    const parsedCertificate = parsePemCertificate(options.data);
+    const subjectKeyIdentifier = getSubjectKeyIdentifier(parsedCertificate);
+    if(!subjectKeyIdentifier) {
+        throw new Error('trustedIssuerCertificates entries must include a Subject Key Identifier extension');
+    }
+
+    const issuerId = `x509_aki:${subjectKeyIdentifier}`;
+    const display = { ...(options.display || {}) };
+    if(!display.name)
+        display.name = getCertificateDisplayName(parsedCertificate) || issuerId;
+
+    const certificate = {
+        data: options.data,
+        format: 'pem',
+        trust_lists: [USER_PROVIDED_TRUST_LIST],
+    };
+
+    return {
+        subjectKeyIdentifier,
+        issuer: {
+            issuer_id: issuerId,
+            entity_type: options.entity_type || 'other',
+            entity_metadata: { ...(options.entity_metadata || {}) },
+            display,
+            certificate,
+        },
+    };
 };
 
 let registry = new TrustedIssuerRegistry();
@@ -26593,13 +26770,11 @@ const pemCRLToBytes = (pem) => {
     const end = pem.indexOf(CRL_PEM_END);
     if(start === -1 || end === -1) throw new Error('Unable to parse PEM CRL');
     const base64 = pem.slice(start + CRL_PEM_BEGIN.length, end).replace(/\s/g, '');
-    return base64ToUint8Array(base64);
+    return base64ToUint8Array$1(base64);
 };
 
 const getDocumentTrustInfo = async (certificate, options = {}) => {
-    const { issuer, untrustedReasons } = options.registryEnabled === false
-        ? getUnavailableRegistryTrustInfo(certificate)
-        : await getRegistryTrustInfo(certificate);
+    const { issuer, untrustedReasons } = await getIssuerTrustInfo(certificate, options);
 
     if(!issuer) {
         return {
@@ -26609,7 +26784,7 @@ const getDocumentTrustInfo = async (certificate, options = {}) => {
         };
     }
 
-    if(!isIssuerTrustedByTrustLists(issuer, options.trustLists || ALL_TRUST_LISTS)) {
+    if(!isIssuerTrustedByTrustLists(issuer, options.trustLists)) {
         untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
     }
 
@@ -26625,30 +26800,24 @@ const getDocumentTrustInfo = async (certificate, options = {}) => {
     };
 };
 
-const getUnavailableRegistryTrustInfo = (certificate) => {
-    return {
-        issuer: null,
-        untrustedReasons: [
-            certificate
-                ? UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND
-                : UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING
-        ],
-    };
-};
+const getIssuerTrustInfo = async (certificate, options = {}) => {
+    let result = await getIssuerForCertificate$1(certificate, options.trustedIssuerCertificates);
 
-const getRegistryTrustInfo = async (certificate) => {
-    const { issuer, untrustedReason } = await getIssuerForCertificate(certificate);
+    if(!result.issuer && options.trustedIssuerRegistryEnabled !== false) {
+        result = await getIssuerForCertificate(certificate);
+    }
+
     return {
-        issuer: issuer || null,
-        untrustedReasons: untrustedReason ? [untrustedReason] : [],
+        issuer: result.issuer || null,
+        untrustedReasons: result.untrustedReason ? [result.untrustedReason] : [],
     };
 };
 
 const isIssuerTrustedByTrustLists = (issuer, trustLists) => {
-    const requestedTrustLists = Array.isArray(trustLists) ? trustLists : [trustLists];
-    if(trustLists == ALL_TRUST_LISTS || requestedTrustLists.includes(ALL_TRUST_LISTS[0])) return true;
     if(!Array.isArray(issuer.certificate?.trust_lists)) return false;
-    return issuer.certificate.trust_lists.some(trustList => requestedTrustLists.includes(trustList));
+    if(issuer.certificate.trust_lists.includes(USER_PROVIDED_TRUST_LIST)) return true;
+    if(!trustLists) trustLists = Object.values(TrustList);
+    return issuer.certificate.trust_lists.some(trustList => trustLists.includes(trustList));
 };
 
 class OpenID4VPProtocolHelper {
@@ -28962,8 +29131,14 @@ const mdocProtocolHelper = new MDOCProtocolHelper();
 class Verifier {
     constructor(options = {}) {
         options = options || {};
-        this.registry = normalizeRegistryConfig(options.registry);
-        this.issuerCertificates = normalizeIssuerCertificates(options.issuerCertificates);
+        const registry = options.trustedIssuerRegistry || {};
+        this.trustedIssuerRegistry = {
+            enabled: registry.enabled !== false,
+            trustLists: Array.isArray(registry.trustLists)
+                ? [...registry.trustLists]
+                : registry.trustLists || Object.values(TrustList),
+        };
+        this.trustedIssuerCertificates = normalizeIssuerCertificates(options.trustedIssuerCertificates);
         this.crl = normalizeCRLConfig(options.crl);
         this.crlCache = new Map();
     }
@@ -29113,8 +29288,9 @@ class Verifier {
             throw new Error('Credential response missing data');
 
         const verificationOptions = {
-            registryEnabled: this.registry.enabled,
-            trustLists: this.registry.trustLists,
+            trustedIssuerRegistryEnabled: this.trustedIssuerRegistry.enabled,
+            trustLists: this.trustedIssuerRegistry.trustLists,
+            trustedIssuerCertificates: this.trustedIssuerCertificates,
             checkCRL: this.crl.enabled,
             crlTimeout: this.crl.timeout,
             crlCacheEnabled: this.crl.cache.enabled,
@@ -29131,18 +29307,6 @@ class Verifier {
         }
     }
 }
-
-const normalizeRegistryConfig = (registry = {}) => {
-    registry = registry || {};
-    return {
-        enabled: registry.enabled !== false,
-        trustLists: Array.isArray(registry.trustLists) ? [...registry.trustLists] : registry.trustLists || ALL_TRUST_LISTS,
-    };
-};
-
-const normalizeIssuerCertificates = (issuerCertificates = []) => {
-    return Array.isArray(issuerCertificates) ? [...issuerCertificates] : [];
-};
 
 const normalizeCRLConfig = (crl = {}) => {
     crl = crl || {};
@@ -29187,4 +29351,4 @@ const generateJWK = async () => {
     return jwk;
 };
 
-export { Claim, CredentialFormat, DocumentType, InvalidReason, Protocol, ProtocolFormats, UntrustedReason, Verifier, generateJWK, generateNonce, setTestDataUsage };
+export { Claim, CredentialFormat, DocumentType, InvalidReason, Protocol, ProtocolFormats, TrustList, UntrustedReason, Verifier, generateJWK, generateNonce, setTestDataUsage };

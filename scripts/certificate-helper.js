@@ -4,6 +4,17 @@ import { CoseAlgToWebCrypto } from './constants.js';
 import { bufferToBase64, bufferToBase64Url, base64ToUint8Array } from './utils.js';
 import { verifySignatureWithPem } from 'trusted-issuer-registry';
 
+const AUTHORITY_KEY_IDENTIFIER_OID = '2.5.29.35';
+const SUBJECT_KEY_IDENTIFIER_OID = '2.5.29.14';
+const SUBJECT_ATTRIBUTE_NAMES = {
+    '2.5.4.3': 'commonName',
+    '2.5.4.6': 'country',
+    '2.5.4.7': 'locality',
+    '2.5.4.8': 'state',
+    '2.5.4.10': 'organization',
+    '2.5.4.11': 'organizationalUnit',
+};
+
 /**
  * Parse a X.509 chain into a PKIjs Certificate object
  * @param {Array|Uint8Array} x5chain - The X.509 chain
@@ -25,7 +36,7 @@ export const parseX5Chain = (x5chain) => {
  */
 export const getAuthorityKeyIdentifier = (x509Cert) => {
     if(!x509Cert) return null;
-    const authorityKeyId = x509Cert.extensions?.find(ext => ext.extnID === '2.5.29.35');
+    const authorityKeyId = x509Cert.extensions?.find(ext => ext.extnID === AUTHORITY_KEY_IDENTIFIER_OID);
     if (authorityKeyId) {
         try {
             const akidValue = asn1js.fromBER(authorityKeyId.extnValue.valueBlock.valueHex);
@@ -34,6 +45,68 @@ export const getAuthorityKeyIdentifier = (x509Cert) => {
             }
         } catch (e) {
             console.error('Could not parse AuthorityKeyIdentifier value', e);
+        }
+    }
+    return null;
+};
+
+/**
+ * Get the SubjectKeyIdentifier from a X.509 certificate
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {string} - The SubjectKeyIdentifier in base64url format
+ */
+export const getSubjectKeyIdentifier = (x509Cert) => {
+    if(!x509Cert) return null;
+    const subjectKeyId = x509Cert.extensions?.find(ext => ext.extnID === SUBJECT_KEY_IDENTIFIER_OID);
+    if (subjectKeyId) {
+        try {
+            const skidValue = asn1js.fromBER(subjectKeyId.extnValue.valueBlock.valueHex);
+            const valueHex = skidValue.result.valueBlock.valueHexView || skidValue.result.valueBlock.valueHex;
+            if (valueHex) return bufferToBase64Url(valueHex);
+        } catch (e) {
+            console.error('Could not parse SubjectKeyIdentifier value', e);
+        }
+    }
+    return null;
+};
+
+/**
+ * Get common subject attributes from a X.509 certificate
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {Object} - Common subject fields
+ */
+export const getCertificateSubject = (x509Cert) => {
+    const subject = {};
+    const attributes = x509Cert?.subject?.typesAndValues || [];
+    for (const attribute of attributes) {
+        const name = SUBJECT_ATTRIBUTE_NAMES[attribute.type];
+        if(!name) continue;
+        const value = getAttributeValue(attribute);
+        if(value) subject[name] = value;
+    }
+    return subject;
+};
+
+/**
+ * Get a best-effort display name from a X.509 certificate subject
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @returns {string|null} - The display name
+ */
+export const getCertificateDisplayName = (x509Cert) => {
+    const subject = getCertificateSubject(x509Cert);
+    return subject.organization || subject.commonName || null;
+};
+
+const getAttributeValue = (attribute) => {
+    const valueBlock = attribute?.value?.valueBlock;
+    if(!valueBlock) return null;
+    if(typeof valueBlock.value === 'string') return valueBlock.value;
+    if(valueBlock.valueHexView || valueBlock.valueHex) {
+        const bytes = valueBlock.valueHexView || new Uint8Array(valueBlock.valueHex);
+        try {
+            return new TextDecoder().decode(bytes).replace(/\0/g, '');
+        } catch (error) {
+            return null;
         }
     }
     return null;

@@ -6,7 +6,7 @@ export const TrustList = {
     AAMVA_DTS: 'aamva_dts',
 };
 
-export const ALL_TRUST_LISTS = ['all_trust_lists'];
+export const USER_PROVIDED_TRUST_LIST = 'user_provided';
 
 /**
  * Reasons a document may fail cryptographic or data-integrity verification

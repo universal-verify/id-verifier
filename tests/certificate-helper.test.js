@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { certificateToPem, parsePemCertificate } from '../scripts/certificate-helper.js';
+import {
+    certificateToPem,
+    getCertificateDisplayName,
+    getCertificateSubject,
+    getSubjectKeyIdentifier,
+    parsePemCertificate,
+} from '../scripts/certificate-helper.js';
 
 const TEST_CERT = `-----BEGIN CERTIFICATE-----
 MIIBkDCCATagAwIBAgIUbHUBhA6c7mDVnFLnyOOk1xYW4y0wCgYIKoZIzj0EAwIw
@@ -24,6 +30,16 @@ test('certificateToPem formats a parsed certificate as PEM', () => {
     for(const line of getPemLines(pem)) {
         assert.ok(line.length <= 64);
     }
+});
+
+test('certificate helper extracts issuer metadata from a parsed certificate', () => {
+    const certificate = parsePemCertificate(TEST_CERT);
+
+    assert.equal(getSubjectKeyIdentifier(certificate), 'oTjQGL-pbAdBhwNBWnrhHyVkkuI');
+    assert.deepEqual(getCertificateSubject(certificate), {
+        commonName: 'Test IACA',
+    });
+    assert.equal(getCertificateDisplayName(certificate), 'Test IACA');
 });
 
 const getPemContent = (pem) => {

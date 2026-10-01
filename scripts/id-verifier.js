@@ -1,4 +1,5 @@
-import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, InvalidReason, UntrustedReason, ALL_TRUST_LISTS } from './constants.js';
+import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, InvalidReason, UntrustedReason, TrustList } from './constants.js';
+import { normalizeIssuerCertificates } from './local-issuer-helper.js';
 import { setTestDataUsage } from './trusted-issuer-registry-helper.js';
 import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
 import MDOCProtocolHelper from './mdoc-protocol-helper.js';
@@ -11,8 +12,14 @@ import MDOCProtocolHelper from './mdoc-protocol-helper.js';
 export class Verifier {
     constructor(options = {}) {
         options = options || {};
-        this.registry = normalizeRegistryConfig(options.registry);
-        this.issuerCertificates = normalizeIssuerCertificates(options.issuerCertificates);
+        const registry = options.trustedIssuerRegistry || {};
+        this.trustedIssuerRegistry = {
+            enabled: registry.enabled !== false,
+            trustLists: Array.isArray(registry.trustLists)
+                ? [...registry.trustLists]
+                : registry.trustLists || Object.values(TrustList),
+        };
+        this.trustedIssuerCertificates = normalizeIssuerCertificates(options.trustedIssuerCertificates);
         this.crl = normalizeCRLConfig(options.crl);
         this.crlCache = new Map();
     }
@@ -162,8 +169,9 @@ export class Verifier {
             throw new Error('Credential response missing data');
 
         const verificationOptions = {
-            registryEnabled: this.registry.enabled,
-            trustLists: this.registry.trustLists,
+            trustedIssuerRegistryEnabled: this.trustedIssuerRegistry.enabled,
+            trustLists: this.trustedIssuerRegistry.trustLists,
+            trustedIssuerCertificates: this.trustedIssuerCertificates,
             checkCRL: this.crl.enabled,
             crlTimeout: this.crl.timeout,
             crlCacheEnabled: this.crl.cache.enabled,
@@ -180,18 +188,6 @@ export class Verifier {
         }
     }
 }
-
-const normalizeRegistryConfig = (registry = {}) => {
-    registry = registry || {};
-    return {
-        enabled: registry.enabled !== false,
-        trustLists: Array.isArray(registry.trustLists) ? [...registry.trustLists] : registry.trustLists || ALL_TRUST_LISTS,
-    };
-};
-
-const normalizeIssuerCertificates = (issuerCertificates = []) => {
-    return Array.isArray(issuerCertificates) ? [...issuerCertificates] : [];
-};
 
 const normalizeCRLConfig = (crl = {}) => {
     crl = crl || {};
@@ -244,5 +240,6 @@ export {
     Claim,
     InvalidReason,
     UntrustedReason,
+    TrustList,
     setTestDataUsage
 };
