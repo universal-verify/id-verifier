@@ -1,62 +1,51 @@
-import { USER_PROVIDED_TRUST_LIST, UntrustedReason } from './constants.js';
+import { USER_PROVIDED_TRUST_LIST } from './constants.js';
 import {
     getAuthorityKeyIdentifier,
     getCertificateDisplayName,
+    getMatchingIssuerCertificates,
     getSubjectKeyIdentifier,
     parsePemCertificate,
-    validateCertificateAgainstIssuer,
 } from './certificate-helper.js';
 
 export const normalizeIssuerCertificates = (trustedIssuerCertificates = []) => {
     const localIssuers = {};
     if(!Array.isArray(trustedIssuerCertificates)) return localIssuers;
     for(const trustedIssuerCertificate of trustedIssuerCertificates) {
-        const certInfo = normalizeLocalIssuerCertificate(
-            trustedIssuerCertificate);
+        const certInfo = normalizeIssuerCertificate(trustedIssuerCertificate);
         const subjectKeyIdentifier = certInfo.subjectKeyIdentifier;
-        if(!localIssuers[subjectKeyIdentifier])
-            localIssuers[subjectKeyIdentifier] = [];
-        localIssuers[subjectKeyIdentifier].push(certInfo.issuer);
+        if(!localIssuers[subjectKeyIdentifier]) {
+            localIssuers[subjectKeyIdentifier] = certInfo.issuer;
+        } else {
+            localIssuers[subjectKeyIdentifier].certificates.push(...certInfo.issuer.certificates);
+        }
     }
     return localIssuers;
 };
 
-export const getIssuerForCertificate = async (certificate, localIssuers = {})=>{
-    if(!certificate) {
-        return {
-            untrustedReason:UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
-        };
-    }
-    if(!hasLocalIssuers(localIssuers))
-        return { untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND};
+export const getIssuerCandidatesForCertificate = async (certificate, localIssuers = {}) => {
+    if(!certificate || !hasLocalIssuers(localIssuers)) return [];
 
     const aki = getAuthorityKeyIdentifier(certificate);
-    if(!aki) {
-        return {
-            untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING,
-        };
-    }
+    if(!aki) return [];
 
-    const matchingIssuers = localIssuers[aki] || [];
-    const matchedCertificate = await validateCertificateAgainstIssuer(
-        certificate,
-        matchingIssuers.map(issuer => issuer.certificate)
-    );
-    if(!matchedCertificate) {
-        return {
-            untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
-        };
-    }
+    const issuer = localIssuers[aki];
+    if(!issuer) return [];
 
-    const issuer = matchingIssuers.find(
-        issuer => issuer.certificate === matchedCertificate);
+    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
+    return matchingCertificates.map(matchedCertificate =>
+        createIssuerCandidate(issuer, matchedCertificate));
+};
+
+const createIssuerCandidate = (issuer, certificate) => {
+    const { certificates: _certificates, ...issuerFields } = issuer;
 
     return {
-        issuer: {
-            ...issuer,
-            display: { ...issuer.display },
-            entity_metadata: { ...issuer.entity_metadata },
-            certificate: { ...issuer.certificate },
+        ...issuerFields,
+        display: { ...(issuer.display || {}) },
+        entity_metadata: { ...(issuer.entity_metadata || {}) },
+        certificate: {
+            ...certificate,
+            trust_lists: [...(certificate.trust_lists || [])],
         },
     };
 };
@@ -66,7 +55,7 @@ const hasLocalIssuers = (localIssuers) => {
         && Object.keys(localIssuers).length > 0;
 };
 
-const normalizeLocalIssuerCertificate = (issuerCertificate) => {
+const normalizeIssuerCertificate = (issuerCertificate) => {
     const options = typeof issuerCertificate === 'string'
         ? { data: issuerCertificate }
         : { ...issuerCertificate };
@@ -102,7 +91,7 @@ const normalizeLocalIssuerCertificate = (issuerCertificate) => {
             entity_type: options.entity_type || 'other',
             entity_metadata: { ...(options.entity_metadata || {}) },
             display,
-            certificate,
+            certificates: [certificate],
         },
     };
 };

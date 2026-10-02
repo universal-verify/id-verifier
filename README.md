@@ -136,8 +136,12 @@ Stable string constants for `processedDocuments[].untrustedReasons`, used when i
 | --- | --- |
 | `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING` | `Document signer certificate is required to determine issuer trust` |
 | `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING` | `Document signer certificate does not contain an Authority Key Identifier` |
+| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID` | `Document signer certificate is not yet valid` |
+| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_EXPIRED` | `Document signer certificate is expired` |
 | `UntrustedReason.ISSUER_FETCH_FAILED` | `Unable to retrieve issuer from trusted issuer registry` |
 | `UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND` | `No trusted issuer certificate found to validate the document signer certificate` |
+| `UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID` | `Issuer certificate is not yet valid` |
+| `UntrustedReason.ISSUER_CERTIFICATE_EXPIRED` | `Issuer certificate is expired` |
 | `UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS` | `Issuer certificate is not trusted by the requested trust lists` |
 | `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_REVOKED` | `Document signer certificate has been revoked by CRL` |
 

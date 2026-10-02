@@ -42,7 +42,7 @@ test('getDocumentTrustInfo reports missing issuer certificate when registry is u
 
     assert.equal(trustInfo.trusted, false);
     assert.equal(trustInfo.issuer, null);
-    assert.deepEqual(trustInfo.untrustedReasons, [UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND]);
+    assert.deepEqual(trustInfo.untrustedReasons, [UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING]);
 });
 
 test('getDocumentTrustInfo trusts a document signer from a user-provided issuer certificate', async () => {
@@ -73,13 +73,13 @@ test('normalizeIssuerCertificates preserves user metadata and fills missing disp
             logo: 'https://example.test/logo.png',
         },
     }]);
-    const issuerCertificate = trustedIssuerCertificates['oTjQGL-pbAdBhwNBWnrhHyVkkuI'][0];
+    const issuer = trustedIssuerCertificates['oTjQGL-pbAdBhwNBWnrhHyVkkuI'];
 
-    assert.equal(issuerCertificate.entity_type, 'government');
-    assert.deepEqual(issuerCertificate.entity_metadata, {
+    assert.equal(issuer.entity_type, 'government');
+    assert.deepEqual(issuer.entity_metadata, {
         country: 'US',
     });
-    assert.deepEqual(issuerCertificate.display, {
+    assert.deepEqual(issuer.display, {
         logo: 'https://example.test/logo.png',
         name: 'Test IACA',
     });
@@ -93,7 +93,24 @@ test('normalizeIssuerCertificates preserves provided display name', () => {
         },
     }]);
 
-    assert.deepEqual(trustedIssuerCertificates['oTjQGL-pbAdBhwNBWnrhHyVkkuI'][0].display, {
+    assert.deepEqual(trustedIssuerCertificates['oTjQGL-pbAdBhwNBWnrhHyVkkuI'].display, {
         name: 'Custom Issuer Name',
     });
+});
+
+
+test('normalizeIssuerCertificates groups certificates with the same subject key identifier', () => {
+    const trustedIssuerCertificates = normalizeIssuerCertificates([
+        TEST_IACA_CERT,
+        {
+            data: TEST_IACA_CERT,
+            display: {
+                name: 'Ignored Duplicate Name',
+            },
+        },
+    ]);
+    const issuer = trustedIssuerCertificates['oTjQGL-pbAdBhwNBWnrhHyVkkuI'];
+
+    assert.equal(issuer.display.name, 'Test IACA');
+    assert.equal(issuer.certificates.length, 2);
 });

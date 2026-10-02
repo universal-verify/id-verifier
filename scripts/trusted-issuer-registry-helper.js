@@ -1,6 +1,8 @@
 import TrustedIssuerRegistry from 'trusted-issuer-registry';
-import { UntrustedReason } from './constants.js';
-import { getAuthorityKeyIdentifier, validateCertificateAgainstIssuer } from './certificate-helper.js';
+import {
+    getAuthorityKeyIdentifier,
+    getMatchingIssuerCertificates,
+} from './certificate-helper.js';
 
 let registry = new TrustedIssuerRegistry();
 const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -16,42 +18,33 @@ export const setTestDataUsage = (useTestData) => {
     priorWarning = 0;
 };
 
-export const getIssuerForCertificate = async (certificate) => {
-    try {
-        if(!certificate) {
-            return {
-                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
-            };
-        }
-        const aki = getAuthorityKeyIdentifier(certificate);
-        if(!aki) {
-            return {
-                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING,
-            };
-        }
-        checkRegistryDeprecation();//No need to wait for this to complete
-        const issuer = await registry.getIssuerFromX509AKI(aki);
-        if(!issuer) {
-            return {
-                untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
-            };
-        }
+export const getIssuerCandidatesForCertificate = async (certificate) => {
+    if(!certificate) return [];
 
-        // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
-        const matchedCertificate = await validateCertificateAgainstIssuer(certificate, issuer.certificates);
-        if (matchedCertificate) {
-            delete issuer.certificates;
-            issuer.certificate = matchedCertificate;
-            return { issuer: issuer };
-        }
+    const aki = getAuthorityKeyIdentifier(certificate);
+    if(!aki) return [];
 
-        return {
-            untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
-        };
-    } catch(error) {
-        console.error('Error getting issuer', error);
-        return { untrustedReason: UntrustedReason.ISSUER_FETCH_FAILED };
-    }
+    checkRegistryDeprecation();//No need to wait for this to complete
+    const issuer = await registry.getIssuerFromX509AKI(aki);
+    if(!issuer) return [];
+
+    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
+    return matchingCertificates.map(matchedCertificate =>
+        createIssuerCandidate(issuer, matchedCertificate));
+};
+
+const createIssuerCandidate = (issuer, certificate) => {
+    const { certificates: _certificates, ...issuerFields } = issuer;
+
+    return {
+        ...issuerFields,
+        display: { ...(issuer.display || {}) },
+        entity_metadata: { ...(issuer.entity_metadata || {}) },
+        certificate: {
+            ...certificate,
+            trust_lists: [...(certificate.trust_lists || [])],
+        },
+    };
 };
 
 async function checkRegistryDeprecation() {

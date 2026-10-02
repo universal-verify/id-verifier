@@ -1,21 +1,34 @@
 import { TrustList, UntrustedReason, USER_PROVIDED_TRUST_LIST } from './constants.js';
 import { checkCertificateRevocation } from './crl-helper.js';
-import { getIssuerForCertificate as getIssuerFromLocalCertificates } from './local-issuer-helper.js';
-import { getIssuerForCertificate as getIssuerFromRegistry } from './trusted-issuer-registry-helper.js';
+import {
+    getAuthorityKeyIdentifier,
+    getDocumentSignerCertificateValidityReason,
+    getIssuerCertificateValidityReason,
+} from './certificate-helper.js';
+import { getIssuerCandidatesForCertificate as getLocalIssuerCandidates } from './local-issuer-helper.js';
+import { getIssuerCandidatesForCertificate as getRegistryIssuerCandidates } from './trusted-issuer-registry-helper.js';
 
 export const getDocumentTrustInfo = async (certificate, options = {}) => {
-    const { issuer, untrustedReasons } = await getIssuerTrustInfo(certificate, options);
+    const untrustedReason = checkIfCertificateHasIssuerInfo(certificate);
+    if(untrustedReason) {
+        return {
+            issuer: null,
+            trusted: false,
+            untrustedReasons: [untrustedReason],
+        };
+    }
+    const signerCertInvalidReason = getDocumentSignerCertificateValidityReason(
+        certificate);
+
+    const { issuer, untrustedReasons } = await getIssuer(certificate, options);
+    if(signerCertInvalidReason) untrustedReasons.push(signerCertInvalidReason);
 
     if(!issuer) {
         return {
             issuer: null,
             trusted: false,
-            untrustedReasons: untrustedReasons.length > 0 ? untrustedReasons : [UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND],
+            untrustedReasons: untrustedReasons,
         };
-    }
-
-    if(!isIssuerTrustedByTrustLists(issuer, options.trustLists)) {
-        untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
     }
 
     if(untrustedReasons.length === 0 && options.checkCRL) {
@@ -30,17 +43,47 @@ export const getDocumentTrustInfo = async (certificate, options = {}) => {
     };
 };
 
-const getIssuerTrustInfo = async (certificate, options = {}) => {
-    let result = await getIssuerFromLocalCertificates(certificate, options.trustedIssuerCertificates);
+const checkIfCertificateHasIssuerInfo = (certificate) => {
+    if(!certificate) return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING;
+    if(!getAuthorityKeyIdentifier(certificate))
+        return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING;
+};
 
-    if(!result.issuer && options.trustedIssuerRegistryEnabled !== false) {
-        result = await getIssuerFromRegistry(certificate);
+const getIssuer = async (certificate, options = {}) => {
+    let registryFetchFailed = false;
+    const candidates = await getLocalIssuerCandidates(certificate,
+        options.trustedIssuerCertificates);
+    if(options.trustedIssuerRegistryEnabled !== false) {
+        try {
+            candidates.push(...await getRegistryIssuerCandidates(certificate));
+        } catch(error) {
+            registryFetchFailed = true;
+        }
     }
+    if(candidates.length === 0) {
+        return {
+            issuer: null,
+            untrustedReasons: [registryFetchFailed
+                ? UntrustedReason.ISSUER_FETCH_FAILED
+                : UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND],
+        };
+    }
+    for(const candidate of candidates) {
+        const reason = getIssuerCertificateValidityReason(candidate.certificate);
+        const trusted = isIssuerTrustedByTrustLists(candidate, options.trustLists);
+        if(!reason && trusted) return {
+            issuer: candidate,
+            untrustedReasons: [],
+        };
+    }
+    const issuer = candidates[0];
+    const reason = getIssuerCertificateValidityReason(issuer.certificate);
+    const trusted = isIssuerTrustedByTrustLists(issuer, options.trustLists);
+    const untrustedReasons = [];
+    if(reason) untrustedReasons.push(reason);
+    if(!trusted) untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
 
-    return {
-        issuer: result.issuer || null,
-        untrustedReasons: result.untrustedReason ? [result.untrustedReason] : [],
-    };
+    return { issuer, untrustedReasons };
 };
 
 const isIssuerTrustedByTrustLists = (issuer, trustLists) => {

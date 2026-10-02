@@ -86,10 +86,10 @@ IB/Sf/Rrfe/NtvP40wiqvxgh4tmsaFhb4NafBER6zj1CAiEAyiGwvQoWBMzFPDW6
         enabled: false,
         trustLists: ['uv'],
     });
-    const issuerCertificate = verifier.trustedIssuerCertificates['oTjQGL-pbAdBhwNBWnrhHyVkkuI'][0];
+    const issuer = verifier.trustedIssuerCertificates['oTjQGL-pbAdBhwNBWnrhHyVkkuI'];
     assert.equal(Object.keys(verifier.trustedIssuerCertificates).length, 1);
-    assert.equal(issuerCertificate.display.name, 'Test IACA');
-    assert.deepEqual(issuerCertificate.certificate.trust_lists, ['user_provided']);
+    assert.equal(issuer.display.name, 'Test IACA');
+    assert.deepEqual(issuer.certificates[0].trust_lists, ['user_provided']);
     assert.equal(verifier.crl.enabled, true);
 });
 

@@ -1,6 +1,6 @@
 import * as asn1js from 'asn1js';
 import { Certificate } from 'pkijs';
-import { CoseAlgToWebCrypto } from './constants.js';
+import { CoseAlgToWebCrypto, UntrustedReason } from './constants.js';
 import { bufferToBase64, bufferToBase64Url, base64ToUint8Array } from './utils.js';
 import { verifySignatureWithPem } from 'trusted-issuer-registry';
 
@@ -97,6 +97,35 @@ export const getCertificateDisplayName = (x509Cert) => {
     return subject.organization || subject.commonName || null;
 };
 
+export const getDocumentSignerCertificateValidityReason = (x509Cert, now = new Date()) => {
+    if(checkNotYetValid(x509Cert, now)) return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID;
+    return checkExpired(x509Cert, now)
+        ? UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_EXPIRED
+        : null;
+};
+
+export const getIssuerCertificateValidityReason = (issuerCertificate, now = new Date()) => {
+    try {
+        const x509Cert = parsePemCertificate(issuerCertificate?.data);
+        if(checkNotYetValid(x509Cert, now)) return UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID;
+        return checkExpired(x509Cert, now)
+            ? UntrustedReason.ISSUER_CERTIFICATE_EXPIRED
+            : null;
+    } catch(error) {
+        return null;
+    }
+};
+
+const checkNotYetValid = (x509Cert, now = new Date()) => {
+    const notBefore = x509Cert?.notBefore?.value;
+    return notBefore instanceof Date && notBefore > now;
+};
+
+const checkExpired = (x509Cert, now = new Date()) => {
+    const notAfter = x509Cert?.notAfter?.value;
+    return notAfter instanceof Date && notAfter < now;
+};
+
 const getAttributeValue = (attribute) => {
     const valueBlock = attribute?.value?.valueBlock;
     if(!valueBlock) return null;
@@ -173,15 +202,15 @@ export const parsePemCertificate = (pemString) => {
 };
 
 /**
- * Validate a certificate against a list of issuer certificates in PEM format
+ * Find issuer certificates that can validate a certificate signature
  * @param {Certificate} certificate - The certificate to validate
  * @param {Array} issuerCertificates - The list of issuer certificates in PEM format
- * @returns {Promise<object>} - The issuer certificate object if the certificate is valid, null otherwise
+ * @returns {Promise<Array>} - The issuer certificate objects that validate the certificate
  */
-export const validateCertificateAgainstIssuer = async (certificate, issuerCertificates) => {
+export const getMatchingIssuerCertificates = async (certificate, issuerCertificates) => {
     if (!issuerCertificates || !Array.isArray(issuerCertificates)) {
         console.error('Unexpected input, no issuer certificates provided or not an array');
-        return null;
+        return [];
     }
 
     let signature, tbsBytes;
@@ -191,21 +220,21 @@ export const validateCertificateAgainstIssuer = async (certificate, issuerCertif
         tbsBytes = new Uint8Array(tbsCertificate);
     } catch (error) {
         console.error('Could not parse signature value from certificate', error);
-        return null;
+        return [];
     }
 
-
+    const matchingIssuerCertificates = [];
     for (let i = 0; i < issuerCertificates.length; i++) {
         const issuerCert = issuerCertificates[i];
         try {
             if (typeof issuerCert.data === 'string') {
                 const isValid = await verifySignatureWithPem(issuerCert.data, signature, tbsBytes);
-                if (isValid) return issuerCert;
+                if (isValid) matchingIssuerCertificates.push(issuerCert);
             }
         } catch (error) {
             continue;
         }
     }
 
-    return null;
+    return matchingIssuerCertificates;
 };

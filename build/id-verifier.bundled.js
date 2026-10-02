@@ -26,8 +26,12 @@ const InvalidReason = {
 const UntrustedReason = {
     DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is required to determine issuer trust',
     DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING: 'Document signer certificate does not contain an Authority Key Identifier',
+    DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID: 'Document signer certificate is not yet valid',
+    DOCUMENT_SIGNER_CERTIFICATE_EXPIRED: 'Document signer certificate is expired',
     ISSUER_FETCH_FAILED: 'Unable to retrieve issuer from trusted issuer registry',
     ISSUER_CERTIFICATE_NOT_FOUND: 'No trusted issuer certificate found to validate the document signer certificate',
+    ISSUER_CERTIFICATE_NOT_YET_VALID: 'Issuer certificate is not yet valid',
+    ISSUER_CERTIFICATE_EXPIRED: 'Issuer certificate is expired',
     ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS: 'Issuer certificate is not trusted by the requested trust lists',
     DOCUMENT_SIGNER_CERTIFICATE_REVOKED: 'Document signer certificate has been revoked by CRL',
 };
@@ -25360,6 +25364,35 @@ const getCertificateDisplayName = (x509Cert) => {
     return subject.organization || subject.commonName || null;
 };
 
+const getDocumentSignerCertificateValidityReason = (x509Cert, now = new Date()) => {
+    if(checkNotYetValid(x509Cert, now)) return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID;
+    return checkExpired(x509Cert, now)
+        ? UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_EXPIRED
+        : null;
+};
+
+const getIssuerCertificateValidityReason = (issuerCertificate, now = new Date()) => {
+    try {
+        const x509Cert = parsePemCertificate(issuerCertificate?.data);
+        if(checkNotYetValid(x509Cert, now)) return UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID;
+        return checkExpired(x509Cert, now)
+            ? UntrustedReason.ISSUER_CERTIFICATE_EXPIRED
+            : null;
+    } catch(error) {
+        return null;
+    }
+};
+
+const checkNotYetValid = (x509Cert, now = new Date()) => {
+    const notBefore = x509Cert?.notBefore?.value;
+    return notBefore instanceof Date && notBefore > now;
+};
+
+const checkExpired = (x509Cert, now = new Date()) => {
+    const notAfter = x509Cert?.notAfter?.value;
+    return notAfter instanceof Date && notAfter < now;
+};
+
 const getAttributeValue = (attribute) => {
     const valueBlock = attribute?.value?.valueBlock;
     if(!valueBlock) return null;
@@ -25420,15 +25453,15 @@ const parsePemCertificate = (pemString) => {
 };
 
 /**
- * Validate a certificate against a list of issuer certificates in PEM format
+ * Find issuer certificates that can validate a certificate signature
  * @param {Certificate} certificate - The certificate to validate
  * @param {Array} issuerCertificates - The list of issuer certificates in PEM format
- * @returns {Promise<object>} - The issuer certificate object if the certificate is valid, null otherwise
+ * @returns {Promise<Array>} - The issuer certificate objects that validate the certificate
  */
-const validateCertificateAgainstIssuer = async (certificate, issuerCertificates) => {
+const getMatchingIssuerCertificates = async (certificate, issuerCertificates) => {
     if (!issuerCertificates || !Array.isArray(issuerCertificates)) {
         console.error('Unexpected input, no issuer certificates provided or not an array');
-        return null;
+        return [];
     }
 
     let signature, tbsBytes;
@@ -25438,75 +25471,64 @@ const validateCertificateAgainstIssuer = async (certificate, issuerCertificates)
         tbsBytes = new Uint8Array(tbsCertificate);
     } catch (error) {
         console.error('Could not parse signature value from certificate', error);
-        return null;
+        return [];
     }
 
-
+    const matchingIssuerCertificates = [];
     for (let i = 0; i < issuerCertificates.length; i++) {
         const issuerCert = issuerCertificates[i];
         try {
             if (typeof issuerCert.data === 'string') {
                 const isValid = await verifySignatureWithPem(issuerCert.data, signature, tbsBytes);
-                if (isValid) return issuerCert;
+                if (isValid) matchingIssuerCertificates.push(issuerCert);
             }
         } catch (error) {
             continue;
         }
     }
 
-    return null;
+    return matchingIssuerCertificates;
 };
 
 const normalizeIssuerCertificates = (trustedIssuerCertificates = []) => {
     const localIssuers = {};
     if(!Array.isArray(trustedIssuerCertificates)) return localIssuers;
     for(const trustedIssuerCertificate of trustedIssuerCertificates) {
-        const certInfo = normalizeLocalIssuerCertificate(
-            trustedIssuerCertificate);
+        const certInfo = normalizeIssuerCertificate(trustedIssuerCertificate);
         const subjectKeyIdentifier = certInfo.subjectKeyIdentifier;
-        if(!localIssuers[subjectKeyIdentifier])
-            localIssuers[subjectKeyIdentifier] = [];
-        localIssuers[subjectKeyIdentifier].push(certInfo.issuer);
+        if(!localIssuers[subjectKeyIdentifier]) {
+            localIssuers[subjectKeyIdentifier] = certInfo.issuer;
+        } else {
+            localIssuers[subjectKeyIdentifier].certificates.push(...certInfo.issuer.certificates);
+        }
     }
     return localIssuers;
 };
 
-const getIssuerForCertificate$1 = async (certificate, localIssuers = {})=>{
-    if(!certificate) {
-        return {
-            untrustedReason:UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
-        };
-    }
-    if(!hasLocalIssuers(localIssuers))
-        return { untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND};
+const getIssuerCandidatesForCertificate$1 = async (certificate, localIssuers = {}) => {
+    if(!certificate || !hasLocalIssuers(localIssuers)) return [];
 
     const aki = getAuthorityKeyIdentifier(certificate);
-    if(!aki) {
-        return {
-            untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING,
-        };
-    }
+    if(!aki) return [];
 
-    const matchingIssuers = localIssuers[aki] || [];
-    const matchedCertificate = await validateCertificateAgainstIssuer(
-        certificate,
-        matchingIssuers.map(issuer => issuer.certificate)
-    );
-    if(!matchedCertificate) {
-        return {
-            untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
-        };
-    }
+    const issuer = localIssuers[aki];
+    if(!issuer) return [];
 
-    const issuer = matchingIssuers.find(
-        issuer => issuer.certificate === matchedCertificate);
+    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
+    return matchingCertificates.map(matchedCertificate =>
+        createIssuerCandidate$1(issuer, matchedCertificate));
+};
+
+const createIssuerCandidate$1 = (issuer, certificate) => {
+    const { certificates: _certificates, ...issuerFields } = issuer;
 
     return {
-        issuer: {
-            ...issuer,
-            display: { ...issuer.display },
-            entity_metadata: { ...issuer.entity_metadata },
-            certificate: { ...issuer.certificate },
+        ...issuerFields,
+        display: { ...(issuer.display || {}) },
+        entity_metadata: { ...(issuer.entity_metadata || {}) },
+        certificate: {
+            ...certificate,
+            trust_lists: [...(certificate.trust_lists || [])],
         },
     };
 };
@@ -25516,7 +25538,7 @@ const hasLocalIssuers = (localIssuers) => {
         && Object.keys(localIssuers).length > 0;
 };
 
-const normalizeLocalIssuerCertificate = (issuerCertificate) => {
+const normalizeIssuerCertificate = (issuerCertificate) => {
     const options = typeof issuerCertificate === 'string'
         ? { data: issuerCertificate }
         : { ...issuerCertificate };
@@ -25552,7 +25574,7 @@ const normalizeLocalIssuerCertificate = (issuerCertificate) => {
             entity_type: options.entity_type || 'other',
             entity_metadata: { ...(options.entity_metadata || {}) },
             display,
-            certificate,
+            certificates: [certificate],
         },
     };
 };
@@ -25571,42 +25593,33 @@ const setTestDataUsage = (useTestData) => {
     priorWarning = 0;
 };
 
-const getIssuerForCertificate = async (certificate) => {
-    try {
-        if(!certificate) {
-            return {
-                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING,
-            };
-        }
-        const aki = getAuthorityKeyIdentifier(certificate);
-        if(!aki) {
-            return {
-                untrustedReason: UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING,
-            };
-        }
-        checkRegistryDeprecation();//No need to wait for this to complete
-        const issuer = await registry.getIssuerFromX509AKI(aki);
-        if(!issuer) {
-            return {
-                untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
-            };
-        }
+const getIssuerCandidatesForCertificate = async (certificate) => {
+    if(!certificate) return [];
 
-        // Validate certificate against one of the certificates in issuer.certificates[].certificate (which is a string PEM)
-        const matchedCertificate = await validateCertificateAgainstIssuer(certificate, issuer.certificates);
-        if (matchedCertificate) {
-            delete issuer.certificates;
-            issuer.certificate = matchedCertificate;
-            return { issuer: issuer };
-        }
+    const aki = getAuthorityKeyIdentifier(certificate);
+    if(!aki) return [];
 
-        return {
-            untrustedReason: UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND,
-        };
-    } catch(error) {
-        console.error('Error getting issuer', error);
-        return { untrustedReason: UntrustedReason.ISSUER_FETCH_FAILED };
-    }
+    checkRegistryDeprecation();//No need to wait for this to complete
+    const issuer = await registry.getIssuerFromX509AKI(aki);
+    if(!issuer) return [];
+
+    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
+    return matchingCertificates.map(matchedCertificate =>
+        createIssuerCandidate(issuer, matchedCertificate));
+};
+
+const createIssuerCandidate = (issuer, certificate) => {
+    const { certificates: _certificates, ...issuerFields } = issuer;
+
+    return {
+        ...issuerFields,
+        display: { ...(issuer.display || {}) },
+        entity_metadata: { ...(issuer.entity_metadata || {}) },
+        certificate: {
+            ...certificate,
+            trust_lists: [...(certificate.trust_lists || [])],
+        },
+    };
 };
 
 async function checkRegistryDeprecation() {
@@ -26789,18 +26802,26 @@ const pemCRLToBytes = (pem) => {
 };
 
 const getDocumentTrustInfo = async (certificate, options = {}) => {
-    const { issuer, untrustedReasons } = await getIssuerTrustInfo(certificate, options);
+    const untrustedReason = checkIfCertificateHasIssuerInfo(certificate);
+    if(untrustedReason) {
+        return {
+            issuer: null,
+            trusted: false,
+            untrustedReasons: [untrustedReason],
+        };
+    }
+    const signerCertInvalidReason = getDocumentSignerCertificateValidityReason(
+        certificate);
+
+    const { issuer, untrustedReasons } = await getIssuer(certificate, options);
+    if(signerCertInvalidReason) untrustedReasons.push(signerCertInvalidReason);
 
     if(!issuer) {
         return {
             issuer: null,
             trusted: false,
-            untrustedReasons: untrustedReasons.length > 0 ? untrustedReasons : [UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND],
+            untrustedReasons: untrustedReasons,
         };
-    }
-
-    if(!isIssuerTrustedByTrustLists(issuer, options.trustLists)) {
-        untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
     }
 
     if(untrustedReasons.length === 0 && options.checkCRL) {
@@ -26815,17 +26836,47 @@ const getDocumentTrustInfo = async (certificate, options = {}) => {
     };
 };
 
-const getIssuerTrustInfo = async (certificate, options = {}) => {
-    let result = await getIssuerForCertificate$1(certificate, options.trustedIssuerCertificates);
+const checkIfCertificateHasIssuerInfo = (certificate) => {
+    if(!certificate) return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING;
+    if(!getAuthorityKeyIdentifier(certificate))
+        return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING;
+};
 
-    if(!result.issuer && options.trustedIssuerRegistryEnabled !== false) {
-        result = await getIssuerForCertificate(certificate);
+const getIssuer = async (certificate, options = {}) => {
+    let registryFetchFailed = false;
+    const candidates = await getIssuerCandidatesForCertificate$1(certificate,
+        options.trustedIssuerCertificates);
+    if(options.trustedIssuerRegistryEnabled !== false) {
+        try {
+            candidates.push(...await getIssuerCandidatesForCertificate(certificate));
+        } catch(error) {
+            registryFetchFailed = true;
+        }
     }
+    if(candidates.length === 0) {
+        return {
+            issuer: null,
+            untrustedReasons: [registryFetchFailed
+                ? UntrustedReason.ISSUER_FETCH_FAILED
+                : UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND],
+        };
+    }
+    for(const candidate of candidates) {
+        const reason = getIssuerCertificateValidityReason(candidate.certificate);
+        const trusted = isIssuerTrustedByTrustLists(candidate, options.trustLists);
+        if(!reason && trusted) return {
+            issuer: candidate,
+            untrustedReasons: [],
+        };
+    }
+    const issuer = candidates[0];
+    const reason = getIssuerCertificateValidityReason(issuer.certificate);
+    const trusted = isIssuerTrustedByTrustLists(issuer, options.trustLists);
+    const untrustedReasons = [];
+    if(reason) untrustedReasons.push(reason);
+    if(!trusted) untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
 
-    return {
-        issuer: result.issuer || null,
-        untrustedReasons: result.untrustedReason ? [result.untrustedReason] : [],
-    };
+    return { issuer, untrustedReasons };
 };
 
 const isIssuerTrustedByTrustLists = (issuer, trustLists) => {

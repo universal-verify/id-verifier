@@ -4,9 +4,12 @@ import {
     certificateToPem,
     getCertificateDisplayName,
     getCertificateSubject,
+    getDocumentSignerCertificateValidityReason,
+    getIssuerCertificateValidityReason,
     getSubjectKeyIdentifier,
     parsePemCertificate,
 } from '../scripts/certificate-helper.js';
+import { UntrustedReason } from '../scripts/constants.js';
 
 const TEST_CERT = `-----BEGIN CERTIFICATE-----
 MIIBkDCCATagAwIBAgIUbHUBhA6c7mDVnFLnyOOk1xYW4y0wCgYIKoZIzj0EAwIw
@@ -54,3 +57,26 @@ const getPemLines = (pem) => {
         .split(/\r?\n/)
         .filter(line => !line.includes('CERTIFICATE') && line.length > 0);
 };
+
+
+test('certificate helper reports certificate validity reasons', () => {
+    const certificate = parsePemCertificate(TEST_CERT);
+
+    assert.equal(getDocumentSignerCertificateValidityReason(certificate, new Date('2026-10-01T00:00:00Z')), null);
+    assert.equal(
+        getDocumentSignerCertificateValidityReason(certificate, new Date('2026-09-01T00:00:00Z')),
+        UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID
+    );
+    assert.equal(
+        getDocumentSignerCertificateValidityReason(certificate, new Date('2037-01-01T00:00:00Z')),
+        UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_EXPIRED
+    );
+    assert.equal(
+        getIssuerCertificateValidityReason({ data: TEST_CERT }, new Date('2026-09-01T00:00:00Z')),
+        UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID
+    );
+    assert.equal(
+        getIssuerCertificateValidityReason({ data: TEST_CERT }, new Date('2037-01-01T00:00:00Z')),
+        UntrustedReason.ISSUER_CERTIFICATE_EXPIRED
+    );
+});
