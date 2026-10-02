@@ -4,19 +4,10 @@ import {
     getMatchingIssuerCertificates,
 } from './certificate-helper.js';
 
-let registry = new TrustedIssuerRegistry();
+const registry = new TrustedIssuerRegistry();
 const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 let priorWarning = 0;
-
-/**
- * Sets whether to use the trusted-issuer-registry's test data
- * @param {boolean} useTestData - Whether to use test data
- */
-export const setTestDataUsage = (useTestData) => {
-    registry = new TrustedIssuerRegistry({ useTestData });
-    priorWarning = 0;
-};
 
 export const getIssuerCandidatesForCertificate = async (certificate) => {
     if(!certificate) return [];

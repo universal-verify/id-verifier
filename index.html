@@ -246,20 +246,44 @@
             </div>
         </div>
         
-        <!-- Test Issuer Registry Toggle -->
+        <!-- Trust Configuration -->
         <div class="mb-6">
-            <h3 class="text-lg font-semibold mb-3">Issuer Registry Settings</h3>
-            <div class="bg-white rounded-lg p-4 border border-gray-200">
-                <label class="flex items-center">
-                    <input type="checkbox" id="useTestData" class="rounded text-blue-600 mr-3">
+            <h3 class="text-lg font-semibold mb-3">Trust Settings</h3>
+            <div class="bg-white rounded-lg p-4 border border-gray-200 mb-4">
+                <label class="flex items-start">
+                    <input type="checkbox" id="trustedIssuerRegistryEnabled" class="rounded text-blue-600 mr-3 mt-1" checked>
                     <div>
-                        <span class="text-sm font-medium text-gray-700">Use Test Issuer Registry</span>
+                        <span class="text-sm font-medium text-gray-700">Use Trusted Issuer Registry</span>
                         <p class="text-xs text-gray-500 mt-1">
-                            Use the test issuer dataset instead of the normal issuer dataset from
-                            <a href="https://github.com/universal-verify/trusted-issuer-registry/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">trusted-issuer-registry</a>
+                            Validate issuer certificates against
+                            <a href="https://github.com/universal-verify/trusted-issuer-registry/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">trusted-issuer-registry</a>.
                         </p>
                     </div>
                 </label>
+                <div class="mt-4 pl-7 space-y-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Registry Trust Lists</p>
+                    <label class="flex items-start">
+                        <input type="checkbox" name="registryTrustList" value="uv" class="rounded text-blue-600 mr-3 mt-1" checked>
+                        <div>
+                            <span class="text-sm font-medium text-gray-700">Universal Verify</span>
+                            <p class="text-xs text-gray-500 mt-1">Issuers trusted by Universal Verify.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start">
+                        <input type="checkbox" name="registryTrustList" value="aamva_dts" class="rounded text-blue-600 mr-3 mt-1" checked>
+                        <div>
+                            <span class="text-sm font-medium text-gray-700">American Association of Motor Vehicle Administrators</span>
+                            <p class="text-xs text-gray-500 mt-1">Issuers trusted by the American Association of Motor Vehicle Administrators.</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                <label for="trustedIssuerCertificates" class="block text-sm font-medium text-gray-700 mb-2">Trusted Issuer Certificates</label>
+                <p class="text-xs text-gray-500 mb-3">
+                    Paste one or more PEM-encoded issuer certificates to trust them directly. This is useful for testing credentials from issuers that are not in the registry.
+                </p>
+                <textarea id="trustedIssuerCertificates" rows="8" class="w-full rounded-md border border-gray-300 p-3 font-mono text-xs focus:border-blue-500 focus:ring-blue-500" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea>
             </div>
         </div>
         
@@ -271,9 +295,12 @@
                 <div class="mb-2 text-gray-700">// Import the library</div>
                 <div class="mb-2"><span class="text-purple-600">import</span> { <span class="text-blue-600">Verifier</span>, <span class="text-blue-600">generateNonce</span>, <span class="text-blue-600">generateJWK</span>, <span class="text-blue-600">DocumentType</span>, <span class="text-blue-600">Claim</span> } <span class="text-purple-600">from</span> <span class="text-green-600">'id-verifier'</span>;</div>
                 <div class="mb-2">&nbsp;</div>
-                <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">verifier</span> = <span class="text-purple-600">new</span> <span class="text-blue-600">Verifier</span>();</div>
+                <div id="verifierDefaultLine" class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">verifier</span> = <span class="text-purple-600">new</span> <span class="text-blue-600">Verifier</span>();</div>
+                <div id="verifierConfiguredStart" class="mb-2 hidden"><span class="text-purple-600">const</span> <span class="text-blue-600">verifier</span> = <span class="text-purple-600">new</span> <span class="text-blue-600">Verifier</span>({</div>
+                <div id="verifierConfig" class="hidden"></div>
+                <div id="verifierConfiguredEnd" class="mb-2 hidden">});</div>
                 <div class="mb-2">&nbsp;</div>
-                <div class="mb-2 text-gray-700">// Generate required parameters</div>
+                <div class="mb-2 text-gray-700">// Generate security parameters</div>
                 <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">nonce</span> = <span class="text-blue-600">generateNonce</span>();</div>
                 <div class="mb-2"><span class="text-purple-600">const</span> <span class="text-blue-600">jwk</span> = <span class="text-purple-600">await</span> <span class="text-blue-600">generateJWK</span>();</div>
                 <div class="mb-2">&nbsp;</div>

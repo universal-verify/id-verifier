@@ -363,23 +363,19 @@ This library requires browsers that support the Digital Credentials API. Current
 ### Android
 
 - Have an android device handy or run an android emulator
-- Download a wallet that allows you to create test credentials. [Here is one option](https://apps.multipaz.org)
-- Go to chrome://flags in your browser
-- Enable DigitalCredentials
+  - If your ID is not currently supported in Google Wallet or you're using the emulator, download a wallet that allows you to create test credentials. [Here is one option](https://apps.multipaz.org)
 - Go to [our demo page](https://universal-verify.github.io/id-verifier/)
 - Tap on "Request Credentials"
 
 ### iOS
 
 - Have an iPhone or simulator running iOS 26 or later
-  - If using a real iphone, make sure you've added your ID to your wallet if supported
-  - If your ID is not currently supported or you don't have an iphone, the simulator has test credentials preinstalled
-- Go to the device's Settings -> Apps -> Safari -> Advanced -> Feature Flags
-- Enabled the Digital Credentials API
+  - If using a real iphone, make sure you've added your ID to your Apple Wallet if supported
+  - If your ID is not currently supported in Apple Wallet or you don't have an iphone, the simulator has test credentials preinstalled
 - Go to [our demo page](https://universal-verify.github.io/id-verifier/)
 - Tap on "Request Credentials"
 
-_Test credentials won't present issuer information, however the demo page includes a "Use Test Issuer Registry" option that uses trusted-issuer-registry's test issuer dataset instead of its normal issuer dataset. Test wallet providers are more than welcome to add their public certificates to the repo's test data. In the near future we will allow you to supply your own list of trusted credentials to the library, but until then, c'est la vie_
+Test credentials may use issuer certificates that are not in the trusted issuer registry. The demo page lets you paste PEM-encoded issuer certificates so you can trust those issuers directly while testing.
 
 ## Contributing
 

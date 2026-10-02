@@ -25004,19 +25004,18 @@ function stringify(value, replacer, space, keyCompare) {
   return str('', { '': value })
 }
 
-const MINOR_VERSION = '0.1';
+const MINOR_VERSION = '0.2';
 const REGISTRY_URL_BASE = `https://cdn.jsdelivr.net/npm/trusted-issuer-registry@${MINOR_VERSION}`;
-const TEST_REGISTRY_URL_BASE = `${REGISTRY_URL_BASE}/test`;
 const PUBLIC_SIGNING_CERT = `-----BEGIN CERTIFICATE-----
-MIIBnDCCAUGgAwIBAgIUekpHX8hoNIrffOfU7MBBNgLJQ2IwCgYIKoZIzj0EAwIw
-IzEhMB8GA1UEAwwYVW5pdmVyc2FsIFZlcmlmeSBSb290IENBMB4XDTI1MDgwNzE4
-MDMwOVoXDTM1MDgwNTE4MDMwOVowIzEhMB8GA1UEAwwYVW5pdmVyc2FsIFZlcmlm
-eSBSb290IENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/dMNQXfYuLMvGYfU
-z/j1jj0GsmT3ysLcxNbN/fJ9JPjgfRPrq3XxbbgT0evxBBp0s124xGQw3rohL9+B
-t6JahqNTMFEwHQYDVR0OBBYEFHPcZW9gI99hWaLBRZUgX+TbICyCMB8GA1UdIwQY
-MBaAFHPcZW9gI99hWaLBRZUgX+TbICyCMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZI
-zj0EAwIDSQAwRgIhAKVKMO3AAWQsCUSQUbhBipi9bTJCBBqF65I8BmfSyqGNAiEA
-7GWs56atbaun83KIokEG9xXhPXGkH6/XWk+eioyyoFo=
+MIIBmjCCAUGgAwIBAgIULVFa5+g4perqTRJKDErRMXThCmAwCgYIKoZIzj0EAwIw
+IzEhMB8GA1UEAwwYVW5pdmVyc2FsIFZlcmlmeSBSb290IENBMB4XDTI2MTAwMjEz
+MzAyNFoXDTM2MDkyOTEzMzAyNFowIzEhMB8GA1UEAwwYVW5pdmVyc2FsIFZlcmlm
+eSBSb290IENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfrzJarNNsjnyngbJ
+ZSzXI5gM6x/36RRJ+/v3tle4jaVZ3hXI/lg4Qq/NPOzwxrEZQSOHebOBzg5C9msL
+G+73zKNTMFEwHQYDVR0OBBYEFEr6yqRcHLSe64ERXXvnADhfgzkuMB8GA1UdIwQY
+MBaAFEr6yqRcHLSe64ERXXvnADhfgzkuMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZI
+zj0EAwIDRwAwRAIgLgTLhVKk/yv7aLvy2XNV224q4iFRL+26F/G3/MKF9dkCIGa4
+jw4Og3tKk0nt09p7ZWpg4dOMYxnGL5L8kWM7UDIF
 -----END CERTIFICATE-----`;
 
 const verifySignatureWithPem = async (pemKey, signature, data) => {
@@ -25180,7 +25179,7 @@ class TrustedIssuerRegistry {
     constructor(options = {}) {
         this._cacheEnabled = options.cacheEnabled ?? true;
         this._cacheTTL = options.cacheTTL ?? 1000 * 60 * 60 * 24; // 24 hours
-        this._urlBase = options.useTestData ? TEST_REGISTRY_URL_BASE : REGISTRY_URL_BASE;
+        this._urlBase = REGISTRY_URL_BASE;
         this._cache = {};
         this._deprecationCache = null;
     }
@@ -25578,68 +25577,6 @@ const normalizeIssuerCertificate = (issuerCertificate) => {
         },
     };
 };
-
-let registry = new TrustedIssuerRegistry();
-const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
-let priorWarning = 0;
-
-/**
- * Sets whether to use the trusted-issuer-registry's test data
- * @param {boolean} useTestData - Whether to use test data
- */
-const setTestDataUsage = (useTestData) => {
-    registry = new TrustedIssuerRegistry({ useTestData });
-    priorWarning = 0;
-};
-
-const getIssuerCandidatesForCertificate = async (certificate) => {
-    if(!certificate) return [];
-
-    const aki = getAuthorityKeyIdentifier(certificate);
-    if(!aki) return [];
-
-    checkRegistryDeprecation();//No need to wait for this to complete
-    const issuer = await registry.getIssuerFromX509AKI(aki);
-    if(!issuer) return [];
-
-    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
-    return matchingCertificates.map(matchedCertificate =>
-        createIssuerCandidate(issuer, matchedCertificate));
-};
-
-const createIssuerCandidate = (issuer, certificate) => {
-    const { certificates: _certificates, ...issuerFields } = issuer;
-
-    return {
-        ...issuerFields,
-        display: { ...(issuer.display || {}) },
-        entity_metadata: { ...(issuer.entity_metadata || {}) },
-        certificate: {
-            ...certificate,
-            trust_lists: [...(certificate.trust_lists || [])],
-        },
-    };
-};
-
-async function checkRegistryDeprecation() {
-    try {
-        const endOfLifeDate = await registry.getEndOfLifeDate();
-        if(endOfLifeDate && priorWarning < Date.now() - WARNING_INTERVAL_MS) logEndOfLifeWarning(endOfLifeDate);
-    } catch(error) {
-        console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
-        console.error(error);
-    }
-}
-
-function logEndOfLifeWarning(endOfLifeDate) {
-    if(endOfLifeDate.getTime() < Date.now()) {
-        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
-    } else {
-        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} reaching end of life on ${endOfLifeDate.toISOString().split('T')[0]}, please update to the latest major/minor version before then to avoid outdated issuer information`);
-    }
-    priorWarning = Date.now();
-}
 
 const f$4={POS_INT:0,NEG_INT:1,BYTE_STRING:2,UTF8_STRING:3,ARRAY:4,MAP:5,TAG:6,SIMPLE_FLOAT:7},I={DATE_STRING:0,DATE_EPOCH:1,POS_BIGINT:2,NEG_BIGINT:3,CBOR:24,URI:32,BASE64URL:33,BASE64:34,SET:258,JSON:262,WTF8:273,REGEXP:21066,SELF_DESCRIBED:55799,INVALID_16:65535,INVALID_32:4294967295,INVALID_64:0xffffffffffffffffn},o$2={ZERO:0,ONE:24,TWO:25,FOUR:26,EIGHT:27,INDEFINITE:31},T$2={FALSE:20,TRUE:21,NULL:22,UNDEFINED:23};let N$2 = class N{static BREAK=Symbol.for("github.com/hildjj/cbor2/break");static ENCODED=Symbol.for("github.com/hildjj/cbor2/cbor-encoded");static LENGTH=Symbol.for("github.com/hildjj/cbor2/length")};const S$1={MIN:-(2n**63n),MAX:2n**64n-1n};
 
@@ -26800,6 +26737,59 @@ const pemCRLToBytes = (pem) => {
     const base64 = pem.slice(start + CRL_PEM_BEGIN.length, end).replace(/\s/g, '');
     return base64ToUint8Array$1(base64);
 };
+
+const registry = new TrustedIssuerRegistry();
+const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+let priorWarning = 0;
+
+const getIssuerCandidatesForCertificate = async (certificate) => {
+    if(!certificate) return [];
+
+    const aki = getAuthorityKeyIdentifier(certificate);
+    if(!aki) return [];
+
+    checkRegistryDeprecation();//No need to wait for this to complete
+    const issuer = await registry.getIssuerFromX509AKI(aki);
+    if(!issuer) return [];
+
+    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
+    return matchingCertificates.map(matchedCertificate =>
+        createIssuerCandidate(issuer, matchedCertificate));
+};
+
+const createIssuerCandidate = (issuer, certificate) => {
+    const { certificates: _certificates, ...issuerFields } = issuer;
+
+    return {
+        ...issuerFields,
+        display: { ...(issuer.display || {}) },
+        entity_metadata: { ...(issuer.entity_metadata || {}) },
+        certificate: {
+            ...certificate,
+            trust_lists: [...(certificate.trust_lists || [])],
+        },
+    };
+};
+
+async function checkRegistryDeprecation() {
+    try {
+        const endOfLifeDate = await registry.getEndOfLifeDate();
+        if(endOfLifeDate && priorWarning < Date.now() - WARNING_INTERVAL_MS) logEndOfLifeWarning(endOfLifeDate);
+    } catch(error) {
+        console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
+        console.error(error);
+    }
+}
+
+function logEndOfLifeWarning(endOfLifeDate) {
+    if(endOfLifeDate.getTime() < Date.now()) {
+        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
+    } else {
+        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} reaching end of life on ${endOfLifeDate.toISOString().split('T')[0]}, please update to the latest major/minor version before then to avoid outdated issuer information`);
+    }
+    priorWarning = Date.now();
+}
 
 const getDocumentTrustInfo = async (certificate, options = {}) => {
     const untrustedReason = checkIfCertificateHasIssuerInfo(certificate);
@@ -29439,4 +29429,4 @@ const generateJWK = async () => {
     return jwk;
 };
 
-export { Claim, CredentialFormat, DocumentType, InvalidReason, Protocol, ProtocolFormats, TrustList, UntrustedReason, Verifier, generateJWK, generateNonce, setTestDataUsage };
+export { Claim, CredentialFormat, DocumentType, InvalidReason, Protocol, ProtocolFormats, TrustList, UntrustedReason, Verifier, generateJWK, generateNonce };

@@ -1,6 +1,5 @@
 import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, InvalidReason, UntrustedReason, TrustList } from './constants.js';
 import { normalizeIssuerCertificates } from './local-issuer-helper.js';
-import { setTestDataUsage } from './trusted-issuer-registry-helper.js';
 import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
 import MDOCProtocolHelper from './mdoc-protocol-helper.js';
 
@@ -257,5 +256,4 @@ export {
     InvalidReason,
     UntrustedReason,
     TrustList,
-    setTestDataUsage
 };

@@ -5,7 +5,7 @@ import {
     generateJWK,
     Claim,
     DocumentType,
-    setTestDataUsage
+    TrustList,
 } from '../../build/id-verifier.bundled.js';
 
 class IndexPage {
@@ -17,6 +17,8 @@ class IndexPage {
 
         this.setup();
     }
+
+    static DEFAULT_TRUST_LISTS = [TrustList.UV, TrustList.AAMVA_DTS];
 
     setup() {
         this.statusEl = document.getElementById('status');
@@ -33,24 +35,35 @@ class IndexPage {
             this.requestBtn.addEventListener('click', () => this.requestCredentials());
         }
 
-        // Add event listeners to checkboxes for live sample script updates
-        this.setupCheckboxListeners();
+        // Add event listeners to configuration inputs for live sample script updates
+        this.setupConfigurationListeners();
     }
 
-    setupCheckboxListeners() {
-        // Get all checkboxes in the configuration section
+    setupConfigurationListeners() {
         const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-
-        // Add change event listener to each checkbox
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', () => {
-                if (checkbox.id === 'useTestData') setTestDataUsage(checkbox.checked);
+                this.updateTrustListControls();
                 this.updateSampleScript();
             });
         });
 
+        const trustedIssuerCertificates = document.getElementById('trustedIssuerCertificates');
+        if(trustedIssuerCertificates) {
+            trustedIssuerCertificates.addEventListener('input', () => this.updateSampleScript());
+        }
+
+        this.updateTrustListControls();
+
         // Initial update
         this.updateSampleScript();
+    }
+
+    updateTrustListControls() {
+        const registryEnabled = document.getElementById('trustedIssuerRegistryEnabled')?.checked !== false;
+        document.querySelectorAll('input[name="registryTrustList"]').forEach(checkbox => {
+            checkbox.disabled = !registryEnabled;
+        });
     }
 
     /**
@@ -129,6 +142,78 @@ class IndexPage {
         return selectedClaims;
     }
 
+    getTrustedIssuerRegistryConfiguration() {
+        const enabled = document.getElementById('trustedIssuerRegistryEnabled')?.checked !== false;
+        const trustLists = [];
+        const trustListMapping = {
+            uv: TrustList.UV,
+            aamva_dts: TrustList.AAMVA_DTS,
+        };
+
+        document.querySelectorAll('input[name="registryTrustList"]').forEach(checkbox => {
+            if(checkbox.checked && trustListMapping[checkbox.value]) {
+                trustLists.push(trustListMapping[checkbox.value]);
+            }
+        });
+
+        return {
+            enabled,
+            trustLists,
+        };
+    }
+
+    getTrustedIssuerRegistryOptions() {
+        const registry = this.getTrustedIssuerRegistryConfiguration();
+        if(!registry.enabled) {
+            return { enabled: false };
+        }
+        if(this.usesDefaultTrustLists(registry.trustLists)) return null;
+        return { trustLists: registry.trustLists };
+    }
+
+    usesDefaultTrustLists(trustLists) {
+        return trustLists.length === IndexPage.DEFAULT_TRUST_LISTS.length
+            && IndexPage.DEFAULT_TRUST_LISTS.every(trustList => trustLists.includes(trustList));
+    }
+
+    getTrustedIssuerCertificatesConfiguration(options = {}) {
+        const {
+            strict = true,
+        } = options;
+        const input = this.normalizeTrustedIssuerCertificateInput(
+            document.getElementById('trustedIssuerCertificates')?.value || ''
+        ).trim();
+        if(!input) return [];
+
+        const pemRegex = /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g;
+        const certificates = input.match(pemRegex) || [];
+        const extraText = input.replace(pemRegex, '').trim();
+
+        if(strict && (certificates.length === 0 || extraText.length > 0)) {
+            throw new Error('Trusted issuer certificates must be PEM-encoded X.509 certificates.');
+        }
+
+        return certificates.map(certificate => certificate.trim());
+    }
+
+    normalizeTrustedIssuerCertificateInput(input) {
+        return input
+            .replace(/\\r\\n/g, '\n')
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\n');
+    }
+
+    getVerifierConfiguration(options = {}) {
+        const verifierConfig = {};
+        const trustedIssuerRegistry = this.getTrustedIssuerRegistryOptions();
+        const trustedIssuerCertificates = this.getTrustedIssuerCertificatesConfiguration(options);
+
+        if(trustedIssuerRegistry) verifierConfig.trustedIssuerRegistry = trustedIssuerRegistry;
+        if(trustedIssuerCertificates.length > 0) verifierConfig.trustedIssuerCertificates = trustedIssuerCertificates;
+
+        return verifierConfig;
+    }
+
     updateSampleScript() {
         const claimsListElement = document.getElementById('claimsList');
         const documentTypesListElement = document.getElementById('documentTypesList');
@@ -137,6 +222,7 @@ class IndexPage {
 
         const claims = this.getClaimConfiguration();
         const documentTypes = this.getDocumentTypeConfiguration();
+        const verifierConfig = this.getVerifierConfiguration({ strict: false });
 
         if (claims.length === 0) {
             claimsListElement.textContent = '// No claims selected';
@@ -169,6 +255,87 @@ class IndexPage {
             ).join(', ');
             documentTypesListElement.textContent = formattedDocumentTypes;
         }
+
+        const verifierConfigElement = document.getElementById('verifierConfig');
+        if(verifierConfigElement) {
+            this.updateVerifierSample(verifierConfig, verifierConfigElement);
+        }
+    }
+
+    updateVerifierSample(verifierConfig, verifierConfigElement) {
+        const hasVerifierConfig = Object.keys(verifierConfig).length > 0;
+        document.getElementById('verifierDefaultLine')?.classList.toggle('hidden', hasVerifierConfig);
+        document.getElementById('verifierConfiguredStart')?.classList.toggle('hidden', !hasVerifierConfig);
+        document.getElementById('verifierConfiguredEnd')?.classList.toggle('hidden', !hasVerifierConfig);
+        verifierConfigElement.classList.toggle('hidden', !hasVerifierConfig);
+        verifierConfigElement.innerHTML = hasVerifierConfig ? this.formatObjectProperties(verifierConfig, 1) : '';
+    }
+
+    formatObjectProperties(object, indentLevel) {
+        return Object.entries(object)
+            .map(([key, value], index, entries) => this.formatProperty(
+                key,
+                value,
+                indentLevel,
+                index < entries.length - 1
+            ))
+            .join('');
+    }
+
+    formatProperty(key, value, indentLevel, includeComma) {
+        const comma = includeComma ? ',' : '';
+        const keyHtml = `<span class="text-blue-600">${this.escapeHtml(key)}</span>`;
+        if(Array.isArray(value)) {
+            return [
+                this.formatSampleLine(`${this.formatIndent(indentLevel)}${keyHtml}: [`),
+                ...value.map((item, index) => this.formatSampleLine(
+                    `${this.formatIndent(indentLevel + 1)}${this.formatValue(item)}${index < value.length - 1 ? ',' : ''}`
+                )),
+                this.formatSampleLine(`${this.formatIndent(indentLevel)}]${comma}`),
+            ].join('');
+        }
+        if(value && typeof value === 'object') {
+            return [
+                this.formatSampleLine(`${this.formatIndent(indentLevel)}${keyHtml}: {`),
+                this.formatObjectProperties(value, indentLevel + 1),
+                this.formatSampleLine(`${this.formatIndent(indentLevel)}}${comma}`),
+            ].join('');
+        }
+        return this.formatSampleLine(`${this.formatIndent(indentLevel)}${keyHtml}: ${this.formatValue(value)}${comma}`);
+    }
+
+    formatValue(value) {
+        if(typeof value === 'string') {
+            return `<span class="text-green-600">'${this.escapeHtml(this.escapeJavaScriptString(value))}'</span>`;
+        }
+        if(typeof value === 'boolean') {
+            return `<span class="text-purple-600">${value}</span>`;
+        }
+        return this.escapeHtml(String(value));
+    }
+
+    formatSampleLine(content) {
+        return `<div class="mb-2">${content}</div>`;
+    }
+
+    formatIndent(indentLevel) {
+        return '&nbsp;'.repeat(indentLevel * 2);
+    }
+
+    escapeJavaScriptString(value) {
+        return value
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/\r?\n/g, '\\n');
+    }
+
+    escapeHtml(value) {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     checkCompatibility() {
@@ -223,6 +390,7 @@ class IndexPage {
             // Get the user's configuration
             const claims = this.getClaimConfiguration();
             const documentTypes = this.getDocumentTypeConfiguration();
+            this.verifier = new Verifier(this.getVerifierConfiguration());
 
             const nonce = generateNonce();
             const jwk = await generateJWK();
@@ -253,6 +421,7 @@ class IndexPage {
 
         } catch (error) {
             let errorMessage = error.name;
+            if(error.message) errorMessage += `: ${error.message}`;
             if(navigator.userAgent.includes('Safari')) {
                 if(error.name === 'TypeError') {
                     errorMessage += ' (Safari currently lacks support outside of iOS 26)';
