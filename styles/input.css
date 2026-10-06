@@ -1,3 +1,49 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities; 
+@import "tailwindcss" source(none);
+
+@source "../*.html";
+@source "../scripts/**/*.js";
+
+/* Preserve the demo's existing colors and fonts. */
+@theme {
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --color-blue-200: #bfdbfe;
+    --color-blue-50: #eff6ff;
+    --color-blue-500: #3b82f6;
+    --color-blue-600: #2563eb;
+    --color-blue-700: #1d4ed8;
+    --color-blue-800: #1e40af;
+    --color-gray-100: #f3f4f6;
+    --color-gray-200: #e5e7eb;
+    --color-gray-300: #d1d5db;
+    --color-gray-400: #9ca3af;
+    --color-gray-50: #f9fafb;
+    --color-gray-500: #6b7280;
+    --color-gray-600: #4b5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1f2937;
+    --color-green-200: #bbf7d0;
+    --color-green-50: #f0fdf4;
+    --color-green-600: #16a34a;
+    --color-green-800: #166534;
+    --color-purple-600: #9333ea;
+    --color-red-200: #fecaca;
+    --color-red-50: #fef2f2;
+    --color-red-800: #991b1b;
+}
+
+@layer base {
+    *,
+    ::before,
+    ::after,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentColor);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--color-gray-400);
+        opacity: 1;
+    }
+}
