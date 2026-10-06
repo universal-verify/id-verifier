@@ -120,13 +120,6 @@ Supported trust lists that can be used in `trustLists`:
 - `UV` - Issuers trusted by Universal Verify
 - `AAMVA_DTS` - Issuers trusted by the American Association of Motor Vehicle Administrators
 
-#### `TrustScope`
-
-Optional issuer scope restrictions for `trustScope`:
-
-- `GOVERNMENT_ISSUED_ID` - Government-issued identity documents
-- `DOCUMENT_SIGNING` - Documents signed by the issuer
-
 #### `RevocationCheckMode`
 
 Controls document signer certificate revocation checks through CRLs:
@@ -162,7 +155,7 @@ Trust failure codes from `trusted-issuer-registry`, used in `processedDocuments[
 - `ISSUER_CERTIFICATE_NOT_YET_VALID` - Issuer certificate is not yet valid
 - `ISSUER_CERTIFICATE_EXPIRED` - Issuer certificate is expired
 - `ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS` - Issuer certificate is not trusted by the requested trust lists
-- `ISSUER_MISSING_REQUIRED_TRUST_SCOPE` - Issuer does not have the requested trust scope
+- `ISSUER_MISSING_REQUIRED_TRUST_SCOPE` - Issuer is not authorized for government-issued identity documents
 
 ### Classes
 
@@ -173,9 +166,8 @@ Creates an ID verifier with optional verification configuration.
 **Constructor options:**
 
 - `trustLists` (Array<string>): Registry trust lists to use for determining trust (default: `TrustList.UV` and `TrustList.AAMVA_DTS`). An empty array skips registry lookups and only looks at user provided `trustedIssuerCertificates`
-- `trustScope` (string): Optional required issuer scope from `TrustScope`, applied to both registry and user-provided issuers (default: no scope restriction)
 - `trustedIssuerRegistry` (Object): Issuer certificate, revocation, and network configuration
-    - `trustedIssuerCertificates` (Array<string|Object>): PEM-encoded X.509 issuer certificates trusted directly by the verifier. Use this when you want to trust issuers not listed in the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Entries can also be objects with a `data` PEM string and optional `format`, `trust_scopes`, `entity_type`, `entity_metadata`, and `display` fields, as described in the [registry constructor documentation](https://github.com/universal-verify/trusted-issuer-registry#new-registryoptions--).
+    - `trustedIssuerCertificates` (Array<string|Object>): PEM-encoded X.509 issuer certificates trusted directly by the verifier for government-issued identity documents. Use this when you want to trust issuers not listed in the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Entries can also be objects with a `data` PEM string and optional `format`, `entity_type`, `entity_metadata`, and `display` fields, as described in the [registry constructor documentation](https://github.com/universal-verify/trusted-issuer-registry#new-registryoptions--).
     - `revocationCheckMode` (string): CRL checking mode from `RevocationCheckMode` (default: `RevocationCheckMode.SKIP`)
     - `timeout` (number): Timeout in milliseconds for each issuer, deprecation, or CRL request, including reading its response body (default: 10000)
     - `cacheEnabled` (boolean): Whether to cache issuer, deprecation, and CRL responses in memory per verifier (default: true)
@@ -185,7 +177,7 @@ Registry trust lists are sourced from the [trusted-issuer-registry](https://gith
 
 Certificates passed through `trustedIssuerRegistry.trustedIssuerCertificates` will not be filtered out by `trustLists`. Their returned certificate metadata uses `trust_lists: ['user_provided']`.
 
-When a `trustScope` is requested, the issuer's `trust_scopes` must include that scope. If using only user-provided issuers, supply the scope in the certificate object's `trust_scopes` field.
+Issuer trust always requires the `government_issued_id` scope. This scope is automatically added to user-provided certificates, preserving any existing scopes.
 
 **Example:**
 ```javascript

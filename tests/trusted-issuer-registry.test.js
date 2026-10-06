@@ -7,10 +7,10 @@ import {
     Certificate, CryptoEngine, Extension, RelativeDistinguishedNames, Time, setEngine,
 } from 'pkijs';
 import { Aes128Gcm, CipherSuite, DhkemP256HkdfSha256, HkdfSha256 } from '@hpke/core';
-import { certificateToPem, parsePemCertificate } from 'trusted-issuer-registry';
+import { certificateToPem, parsePemCertificate, TrustScope } from 'trusted-issuer-registry';
 import * as registryExports from 'trusted-issuer-registry';
 import {
-    Verifier, DocumentType, Protocol, TrustList, TrustScope, RevocationCheckMode,
+    Verifier, DocumentType, Protocol, TrustList, RevocationCheckMode,
     UntrustedReason, generateJWK,
 } from '../scripts/id-verifier.js';
 import MDOCProtocolHelper from '../scripts/mdoc-protocol-helper.js';
@@ -60,6 +60,7 @@ for(const protocol of Object.values(Protocol)) {
         const document = result.processedDocuments[0];
         assert.equal(document.untrustedReasons, undefined);
         assert.equal(document.issuer.display.name, 'Test IACA');
+        assert.deepEqual(document.issuer.trust_scopes, [TrustScope.GOVERNMENT_ISSUED_ID]);
         assert.equal(document.issuer.certificates.length, 1);
         assert.deepEqual(document.issuer.certificates[0].trust_lists, ['user_provided']);
         assert.equal(document.issuer.certificates[0].trusted, true);
@@ -67,29 +68,72 @@ for(const protocol of Object.values(Protocol)) {
         assert.equal(fetch.mock.callCount(), 0);
     });
 
-    test(`${protocol} forwards scope restrictions and issuer metadata`, async () => {
-        const options = {
-            trustLists: [],
-            trustScope: TrustScope.GOVERNMENT_ISSUED_ID,
-            trustedIssuerRegistry: {
-                trustedIssuerCertificates: [{
-                    data: certificateToPem(issuerCertificate),
-                    entity_type: 'government',
-                    entity_metadata: { country: 'CA', region: 'QC' },
-                    display: { name: 'Custom Issuer', logo: 'https://example.test/logo.png' },
-                    trust_scopes: [TrustScope.GOVERNMENT_ISSUED_ID],
-                }],
-            },
-        };
-        const result = await new Verifier(options).processCredentials(credentials[protocol], params);
-        assert.equal(result.trusted, true);
-        assert.deepEqual(result.processedDocuments[0].issuer.display, options.trustedIssuerRegistry.trustedIssuerCertificates[0].display);
-        assert.deepEqual(result.processedDocuments[0].issuer.entity_metadata, { country: 'CA', region: 'QC' });
+    test(`${protocol} adds government ID scope to issuer objects without changing caller metadata`, async () => {
+        for(const trustScopes of [
+            undefined,
+            [],
+            [TrustScope.DOCUMENT_SIGNING],
+            [TrustScope.GOVERNMENT_ISSUED_ID],
+            [TrustScope.GOVERNMENT_ISSUED_ID, TrustScope.DOCUMENT_SIGNING],
+        ]) {
+            const certificateOptions = Object.freeze({
+                data: certificateToPem(issuerCertificate),
+                entity_type: 'government',
+                entity_metadata: { country: 'CA', region: 'QC' },
+                display: { name: 'Custom Issuer', logo: 'https://example.test/logo.png' },
+                ...(trustScopes && { trust_scopes: Object.freeze(trustScopes) }),
+            });
+            const options = {
+                trustLists: [],
+                trustedIssuerRegistry: Object.freeze({
+                    trustedIssuerCertificates: Object.freeze([certificateOptions]),
+                }),
+            };
+            const result = await new Verifier(options).processCredentials(credentials[protocol], params);
+            const issuer = result.processedDocuments[0].issuer;
+            assert.equal(result.trusted, true);
+            assert.deepEqual(issuer.display, certificateOptions.display);
+            assert.deepEqual(issuer.entity_metadata, certificateOptions.entity_metadata);
+            assert.equal(issuer.entity_type, certificateOptions.entity_type);
+            assert.deepEqual(issuer.trust_scopes, trustScopes?.includes(TrustScope.GOVERNMENT_ISSUED_ID)
+                ? trustScopes : [...trustScopes || [], TrustScope.GOVERNMENT_ISSUED_ID]);
+            assert.equal(certificateOptions.trust_scopes, trustScopes);
+        }
+    });
 
-        options.trustScope = TrustScope.DOCUMENT_SIGNING;
-        const untrusted = await new Verifier(options).processCredentials(credentials[protocol], params);
-        assert.equal(untrusted.trusted, false);
-        assert.deepEqual(untrusted.processedDocuments[0].untrustedReasons, [UntrustedReason.ISSUER_MISSING_REQUIRED_TRUST_SCOPE]);
+    test(`${protocol} always requires government ID scope from registry issuers`, async t => {
+        for(const trustScopes of [
+            [],
+            [TrustScope.DOCUMENT_SIGNING],
+            [TrustScope.GOVERNMENT_ISSUED_ID],
+            [TrustScope.DOCUMENT_SIGNING, TrustScope.GOVERNMENT_ISSUED_ID],
+        ]) {
+            const verifier = new Verifier({
+                trustLists: [TrustList.UV],
+                trustScope: TrustScope.DOCUMENT_SIGNING,
+            });
+            // Supply an issuer as returned by the registry's verified response cache.
+            t.mock.method(verifier._registry._cachedFetcher, 'fetch', async (_url, purpose) => purpose === 'issuer'
+                ? { ok: true, issuer: {
+                    issuer_id: 'x509_aki:AQIDBA',
+                    entity_type: 'government',
+                    entity_metadata: {},
+                    display: { name: 'Registry Issuer' },
+                    trust_scopes: trustScopes,
+                    certificates: [{ data: certificateToPem(issuerCertificate), format: 'pem', trust_lists: [TrustList.UV] }],
+                } }
+                : { ok: false, status: 404 });
+            const result = await verifier.processCredentials(credentials[protocol], params);
+            const document = result.processedDocuments[0];
+            const expectedTrusted = trustScopes.includes(TrustScope.GOVERNMENT_ISSUED_ID);
+            assert.equal(result.valid, true);
+            assert.equal(result.trusted, expectedTrusted);
+            assert.equal(document.issuer.certificates[0].trusted, expectedTrusted);
+            assert.deepEqual(document.issuer.trust_scopes, trustScopes);
+            assert.deepEqual(document.untrustedReasons, expectedTrusted
+                ? undefined : [UntrustedReason.ISSUER_MISSING_REQUIRED_TRUST_SCOPE]);
+            assert.equal('trustScope' in verifier, false);
+        }
     });
 
     test(`${protocol} forwards best-effort and required revocation modes`, async () => {
@@ -268,6 +312,7 @@ test('issuer fetching uses the configured network timeout', async t => {
 test('the constructor rejects unsupported revocation modes and malformed PEM inputs', () => {
     assert.throws(() => new Verifier({ trustedIssuerRegistry: { revocationCheckMode: 'unsupported' } }), /Unsupported CRL check mode/);
     assert.throws(() => new Verifier({ trustedIssuerRegistry: { trustedIssuerCertificates: ['not a certificate'] } }));
+    assert.throws(() => new Verifier({ trustedIssuerRegistry: { trustedIssuerCertificates: 'not an array' } }), /trustedIssuerCertificates must be an array/);
 });
 
 test('all SDK builds expose registry constants and resolve PEM trust for both protocols', async t => {
@@ -276,9 +321,10 @@ test('all SDK builds expose registry constants and resolve PEM trust for both pr
     });
     for(const filename of ['id-verifier.js', 'id-verifier.min.js', 'id-verifier.bundled.js', 'id-verifier.bundled.min.js']) {
         const sdk = await import(`../build/${filename}`);
-        for(const name of ['TrustList', 'TrustScope', 'RevocationCheckMode', 'UntrustedReason']) {
+        for(const name of ['TrustList', 'RevocationCheckMode', 'UntrustedReason']) {
             assert.deepEqual(sdk[name], registryExports[name], `${filename}: ${name}`);
         }
+        assert.equal('TrustScope' in sdk, false, filename);
         for(const protocol of Object.values(Protocol)) {
             const verifier = new sdk.Verifier({
                 trustLists: [],
@@ -289,6 +335,7 @@ test('all SDK builds expose registry constants and resolve PEM trust for both pr
             const result = await verifier.processCredentials(credentials[protocol], params);
             assert.equal(result.valid, true, `${filename}: ${protocol}`);
             assert.equal(result.trusted, true, `${filename}: ${protocol}`);
+            assert.deepEqual(result.processedDocuments[0].issuer.trust_scopes, [TrustScope.GOVERNMENT_ISSUED_ID]);
             assert.equal(result.processedDocuments[0].issuer.certificates[0].trusted, true);
         }
     }

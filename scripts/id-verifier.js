@@ -13,8 +13,16 @@ export class Verifier {
     constructor(options = {}) {
         options = options || {};
         this.trustLists = [...(options.trustLists ?? Object.values(TrustList))];
-        this.trustScope = options.trustScope;
-        this._registry = new Registry(options.trustedIssuerRegistry || {});
+        const registryOptions = { ...options.trustedIssuerRegistry };
+        if(Array.isArray(registryOptions.trustedIssuerCertificates)) {
+            registryOptions.trustedIssuerCertificates = registryOptions.trustedIssuerCertificates.map(certificate => {
+                const certificateOptions = typeof certificate === 'string' ? { data: certificate } : { ...certificate };
+                const trustScopes = Array.isArray(certificateOptions.trust_scopes) ? [...certificateOptions.trust_scopes] : [];
+                if(!trustScopes.includes(TrustScope.GOVERNMENT_ISSUED_ID)) trustScopes.push(TrustScope.GOVERNMENT_ISSUED_ID);
+                return { ...certificateOptions, trust_scopes: trustScopes };
+            });
+        }
+        this._registry = new Registry(registryOptions);
     }
 
     /**
@@ -180,7 +188,7 @@ export class Verifier {
         const verificationOptions = {
             registry: this._registry,
             trustLists: this.trustLists,
-            trustScope: this.trustScope,
+            trustScope: TrustScope.GOVERNMENT_ISSUED_ID,
         };
         if(verificationOptions.trustLists.length > 0) {
             checkRegistryDeprecation(this._registry);//No need to wait for this to complete
@@ -235,6 +243,5 @@ export {
     InvalidReason,
     UntrustedReason,
     TrustList,
-    TrustScope,
     RevocationCheckMode,
 };
