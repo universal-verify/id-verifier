@@ -66,6 +66,7 @@ class IndexPage {
             'mobileDriversLicense': DocumentType.MOBILE_DRIVERS_LICENSE,
             'photoId': DocumentType.PHOTO_ID,
             'euPersonalId': DocumentType.EU_PERSONAL_ID,
+            'euAgeVerification': DocumentType.EU_AGE_VERIFICATION,
             'japanMyNumberCard': DocumentType.JAPAN_MY_NUMBER_CARD
         };
 

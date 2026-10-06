@@ -6,7 +6,7 @@ A JavaScript library that simplifies requesting and verifying mobile IDs. [See i
 
 - **Cross-platform**: Works in both browser and Node.js environments
 - **Protocol Support**: Supports OpenID4VP and ISO mDoc protocols
-- **Document Types**: Supports multiple document types including Mobile Driver's License, Photo ID, EU Personal ID, and Japan My Number Card
+- **Document Types**: Supports multiple document types including Mobile Driver's License, Photo ID, EU Personal ID, EU Age Verification, and Japan My Number Card
 - **Security**: Includes nonce generation, timeouts, and trusted issuer verification
 
 ## Installation
@@ -78,6 +78,7 @@ Supported document types:
 - `MOBILE_DRIVERS_LICENSE` - Mobile Driver's License (ISO 18013-5 mDL)
 - `PHOTO_ID` - Photo ID (ISO 23220)
 - `EU_PERSONAL_ID` - EU Personal ID (European Digital Identity)
+- `EU_AGE_VERIFICATION` - EU Age Verification
 - `JAPAN_MY_NUMBER_CARD` - Japan My Number Card
 
 #### `Claim`
@@ -112,6 +113,8 @@ Supported claim fields that can be requested:
 - `DRIVING_PRIVILEGES` - Driving privileges
 - `PORTRAIT` - Portrait photo
 - `SIGNATURE` - Signature
+
+Document types omit unsupported claims from requests. See the [claim mappings](docs/claim_mapping.md) for the claims supported by each document type.
 
 #### `TrustList`
 
@@ -165,9 +168,9 @@ Creates an ID verifier with optional verification configuration.
 
 **Constructor options:**
 
-- `trustLists` (Array<string>): Registry trust lists to use for determining trust (default: `TrustList.UV` and `TrustList.AAMVA_DTS`). An empty array skips registry lookups and only looks at user provided `trustedIssuerCertificates`
+- `trustLists` (Array\<string\>): Registry trust lists to use for determining trust (default: `TrustList.UV` and `TrustList.AAMVA_DTS`). An empty array skips registry lookups and only looks at user provided `trustedIssuerCertificates`
 - `trustedIssuerRegistry` (Object): Issuer certificate, revocation, and network configuration
-    - `trustedIssuerCertificates` (Array<string|Object>): PEM-encoded X.509 issuer certificates trusted directly by the verifier for government-issued identity documents. Use this when you want to trust issuers not listed in the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Entries can also be objects with a `data` PEM string and optional `format`, `entity_type`, `entity_metadata`, and `display` fields, as described in the [registry constructor documentation](https://github.com/universal-verify/trusted-issuer-registry#new-registryoptions--).
+    - `trustedIssuerCertificates` (Array\<string|Object\>): PEM-encoded X.509 issuer certificates trusted directly by the verifier for government-issued identity documents. Use this when you want to trust issuers not listed in the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Entries can also be objects with a `data` PEM string and optional `format`, `entity_type`, `entity_metadata`, and `display` fields, as described in the [registry constructor documentation](https://github.com/universal-verify/trusted-issuer-registry#new-registryoptions--).
     - `revocationCheckMode` (string): CRL checking mode from `RevocationCheckMode` (default: `RevocationCheckMode.SKIP`)
     - `timeout` (number): Timeout in milliseconds for each issuer, deprecation, or CRL request, including reading its response body (default: 10000)
     - `cacheEnabled` (boolean): Whether to cache issuer, deprecation, and CRL responses in memory per verifier (default: true)
@@ -221,7 +224,7 @@ const nonce = generateNonce();
 
 Generates a JSON Web Key using the P-256 curve for encryption. Meant for backend use
 
-**Returns:** Promise<Object> - Promise that resolves to the JWK
+**Returns:** Promise\<Object\> - Promise that resolves to the JWK
 
 **Example:**
 ```javascript
@@ -234,8 +237,8 @@ Creates request parameters for digital credential verification. Meant for backen
 
 **Parameters:**
 - `options` (Object):
-  - `documentTypes` (Array<string>): Type(s) of documents to request (default: `[DocumentType.MOBILE_DRIVERS_LICENSE]`)
-  - `claims` (Array<string>): Array of claim fields from `Claim` to request (default: `[]`)
+  - `documentTypes` (Array\<string\>): Type(s) of documents to request (default: `[DocumentType.MOBILE_DRIVERS_LICENSE]`)
+  - `claims` (Array\<string\>): Array of claim fields from `Claim` to request (default: `[]`)
   - `nonce` (string): Security nonce (required)
   - `jwk` (Object): JSON Web Key for encryption (required)
 
@@ -358,12 +361,12 @@ The `verifier.processCredentials` function returns an object with the following 
   - `claims` (Object): Claims extracted from this specific document
   - `valid` (Boolean): Whether this document is valid
   - `trusted` (Boolean): Whether the document signer and at least one issuer certificate pass the requested trust checks
-  - `invalidReasons` (Array<string>): Reasons this document is invalid, present only when `valid` is false
-  - `untrustedReasons` (Array<string>): Reasons this document is untrusted, present only when `trusted` is false
+  - `invalidReasons` (Array\<string\>): Reasons this document is invalid, present only when `valid` is false
+  - `untrustedReasons` (Array\<string\>): Reasons this document is untrusted, present only when `trusted` is false
   - `document` (Object): Full unencrypted document data
   - `issuer` (Object): Issuer metadata merged from user-provided certificates and the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry), `null` when no issuer is found
-    - `trust_scopes` (Array<string>): Supported issuer scopes
-    - `certificates` (Array<Object>): All issuer certificates, each with `data`, `format`, `trust_lists`, `trusted`, and `revocationStatus` (`not_checked`, `not_revoked`, or `revoked`). Untrusted certificates also include `untrustedReasons`
+    - `trust_scopes` (Array\<string\>): Supported issuer scopes
+    - `certificates` (Array\<Object\>): All issuer certificates, each with `data`, `format`, `trust_lists`, `trusted`, and `revocationStatus` (`not_checked`, `not_revoked`, or `revoked`). Untrusted certificates also include `untrustedReasons`
 - `sessionTranscript` (Object): Session transcript that was used for decryption/verification
 
 ## Browser Support

@@ -42,6 +42,33 @@ before(async () => {
 });
 
 for(const protocol of Object.values(Protocol)) {
+    for(const [documentType, claimValues, expectedClaims] of [
+        [DocumentType.EU_AGE_VERIFICATION, [
+            ['eu.europa.ec.av.1', 'age_over_18', true],
+            ['eu.europa.ec.av.1', 'age_over_21', false],
+            ['eu.europa.ec.av.1', 'portrait', new Uint8Array([1, 2, 3])],
+        ], { age_over_18: true, age_over_21: false, portrait: new Uint8Array([1, 2, 3]) }],
+        [DocumentType.JAPAN_MY_NUMBER_CARD, [
+            ['org.iso.23220.1', 'age_over_21', true],
+            ['org.iso.23220.1.jp', 'resident_address_unicode', '東京都千代田区'],
+            ['org.iso.23220.1.jp', 'individual_number_unicode', '123456789012'],
+            ['org.iso.23220.1.jp', 'portrait', new Uint8Array([4, 5, 6])],
+        ], { age_over_21: true, address: '東京都千代田区', document_number: '123456789012', portrait: new Uint8Array([4, 5, 6]) }],
+    ]) {
+        test(`${protocol} verifies ${documentType} and extracts its mapped claims`, async () => {
+            const verifier = new Verifier({
+                trustLists: [],
+                trustedIssuerRegistry: { trustedIssuerCertificates: [certificateToPem(issuerCertificate)] },
+            });
+            const credential = await createCredentials(protocol, signerCertificate, { docType: documentType, claimValues });
+            const result = await verifier.processCredentials(credential, params);
+            assert.equal(result.valid, true);
+            assert.equal(result.trusted, true);
+            assert.deepEqual(result.claims, expectedClaims);
+            assert.equal(result.processedDocuments[0].document.docType, documentType);
+        });
+    }
+
     test(`${protocol} trusts raw PEMs with the registry disabled and returns certificate results`, async t => {
         const fetch = t.mock.method(globalThis, 'fetch', async () => {
             throw new Error('Registry-disabled PEM trust must not fetch');
@@ -321,6 +348,7 @@ test('all SDK builds expose registry constants and resolve PEM trust for both pr
     });
     for(const filename of ['id-verifier.js', 'id-verifier.min.js', 'id-verifier.bundled.js', 'id-verifier.bundled.min.js']) {
         const sdk = await import(`../build/${filename}`);
+        assert.deepEqual(sdk.DocumentType, DocumentType, `${filename}: DocumentType`);
         for(const name of ['TrustList', 'RevocationCheckMode', 'UntrustedReason']) {
             assert.deepEqual(sdk[name], registryExports[name], `${filename}: ${name}`);
         }
@@ -398,22 +426,30 @@ async function signCose(payload) {
     return [protectedHeaders, new Map(), payload, new Uint8Array(signature)];
 }
 
-async function createCredentials(protocol, certificate = signerCertificate) {
+async function createCredentials(protocol, certificate = signerCertificate, options = {}) {
     const sessionTranscript = protocol === Protocol.OPENID4VP
         ? await OpenID4VPProtocolHelper._generateSessionTranscript(params.origin, params.nonce)
         : await MDOCProtocolHelper._generateSessionTranscript(params.origin, params.nonce, params.jwk);
-    const namespace = 'org.iso.18013.5.1';
-    const docType = DocumentType.MOBILE_DRIVERS_LICENSE;
-    const claim = new cbor2.Tag(24, cbor2.encode({
-        digestID: 0, random: new Uint8Array(16), elementIdentifier: 'given_name', elementValue: 'Test',
-    }));
-    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', cbor2.encode(claim)));
+    const {
+        docType = DocumentType.MOBILE_DRIVERS_LICENSE,
+        claimValues = [['org.iso.18013.5.1', 'given_name', 'Test']],
+    } = options;
+    const issuerNameSpaces = {};
+    const valueDigests = {};
+    for(const [digestID, [namespace, elementIdentifier, elementValue]] of claimValues.entries()) {
+        const claim = new cbor2.Tag(24, cbor2.encode({
+            digestID, random: new Uint8Array(16), elementIdentifier, elementValue,
+        }));
+        const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', cbor2.encode(claim)));
+        (issuerNameSpaces[namespace] ??= []).push(claim);
+        (valueDigests[namespace] ??= new Map()).set(digestID, digest);
+    }
     const signerJWK = await crypto.subtle.exportKey('jwk', signerKeyPair.publicKey);
     const payload = cbor2.encode(new cbor2.Tag(24, cbor2.encode({
         docType,
         validityInfo: { validFrom: VALID_FROM.toISOString(), validUntil: VALID_UNTIL.toISOString() },
         deviceKeyInfo: { deviceKey: jwkToCoseKey(signerJWK) },
-        valueDigests: { [namespace]: new Map([[0, digest]]) },
+        valueDigests,
     })));
     const issuerAuth = await signCose(payload);
     issuerAuth[1].set(33, new Uint8Array(certificate.toSchema().toBER()));
@@ -421,12 +457,13 @@ async function createCredentials(protocol, certificate = signerCertificate) {
     const deviceAuthentication = cbor2.encode(['DeviceAuthentication', cbor2.decode(sessionTranscript), docType, nameSpaces]);
     const document = {
         docType,
-        issuerSigned: { issuerAuth, nameSpaces: { [namespace]: [claim] } },
+        issuerSigned: { issuerAuth, nameSpaces: issuerNameSpaces },
         deviceSigned: { nameSpaces, deviceAuth: { deviceSignature: await signCose(cbor2.encode(new cbor2.Tag(24, deviceAuthentication))) } },
     };
     const response = cbor2.encode({ documents: [document] });
     if(protocol === Protocol.OPENID4VP) {
-        return { protocol, data: { vp_token: { 'cred-mso_mdoc-org_iso_18013_5_1_mDL': [bufferToBase64Url(response)] } } };
+        const credentialId = `cred-mso_mdoc-${docType.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        return { protocol, data: { vp_token: { [credentialId]: [bufferToBase64Url(response)] } } };
     }
     const { d: _d, ...publicJWK } = params.jwk;
     const recipientPublicKey = await crypto.subtle.importKey('jwk', { ...publicJWK, key_ops: [] },
