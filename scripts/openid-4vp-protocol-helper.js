@@ -1,6 +1,5 @@
 import { DocumentType, Protocol, ProtocolFormats, CredentialFormat, ClaimMappings } from './constants.js';
 import { decodeVpToken, verifyDocument } from './formats/mdoc-helper.js';
-import { getDocumentTrustInfo } from './trust-helper.js';
 import * as cbor2 from 'cbor2';
 
 class OpenID4VPProtocolHelper {
@@ -106,7 +105,7 @@ class OpenID4VPProtocolHelper {
         }
         for(const document of documents) {
             const { claims: documentClaims, certificate, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            const trustInfo = await getDocumentTrustInfo(certificate, options);
+            const trustInfo = await options.registry.resolveCertificateTrust(certificate, options);
             trusted = trusted && trustInfo.trusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
@@ -116,7 +115,7 @@ class OpenID4VPProtocolHelper {
                 claims: documentClaims,
                 valid: documentValid,
                 trusted: trustInfo.trusted,
-                issuer: trustInfo.issuer,
+                issuer: trustInfo.issuer || null,
                 document: document,
             };
             if(!documentValid) processedDocument.invalidReasons = invalidReasons;

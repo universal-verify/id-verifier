@@ -42,10 +42,7 @@ class IndexPage {
     setupConfigurationListeners() {
         const checkboxes = document.querySelectorAll('input[type="checkbox"]');
         checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', () => {
-                this.updateTrustListControls();
-                this.updateSampleScript();
-            });
+            checkbox.addEventListener('change', () => this.updateSampleScript());
         });
 
         const trustedIssuerCertificates = document.getElementById('trustedIssuerCertificates');
@@ -53,17 +50,8 @@ class IndexPage {
             trustedIssuerCertificates.addEventListener('input', () => this.updateSampleScript());
         }
 
-        this.updateTrustListControls();
-
         // Initial update
         this.updateSampleScript();
-    }
-
-    updateTrustListControls() {
-        const registryEnabled = document.getElementById('trustedIssuerRegistryEnabled')?.checked !== false;
-        document.querySelectorAll('input[name="registryTrustList"]').forEach(checkbox => {
-            checkbox.disabled = !registryEnabled;
-        });
     }
 
     /**
@@ -142,8 +130,7 @@ class IndexPage {
         return selectedClaims;
     }
 
-    getTrustedIssuerRegistryConfiguration() {
-        const enabled = document.getElementById('trustedIssuerRegistryEnabled')?.checked !== false;
+    getTrustListConfiguration() {
         const trustLists = [];
         const trustListMapping = {
             uv: TrustList.UV,
@@ -156,19 +143,7 @@ class IndexPage {
             }
         });
 
-        return {
-            enabled,
-            trustLists,
-        };
-    }
-
-    getTrustedIssuerRegistryOptions() {
-        const registry = this.getTrustedIssuerRegistryConfiguration();
-        if(!registry.enabled) {
-            return { enabled: false };
-        }
-        if(this.usesDefaultTrustLists(registry.trustLists)) return null;
-        return { trustLists: registry.trustLists };
+        return trustLists;
     }
 
     usesDefaultTrustLists(trustLists) {
@@ -205,11 +180,13 @@ class IndexPage {
 
     getVerifierConfiguration(options = {}) {
         const verifierConfig = {};
-        const trustedIssuerRegistry = this.getTrustedIssuerRegistryOptions();
+        const trustLists = this.getTrustListConfiguration();
         const trustedIssuerCertificates = this.getTrustedIssuerCertificatesConfiguration(options);
 
-        if(trustedIssuerRegistry) verifierConfig.trustedIssuerRegistry = trustedIssuerRegistry;
-        if(trustedIssuerCertificates.length > 0) verifierConfig.trustedIssuerCertificates = trustedIssuerCertificates;
+        if(!this.usesDefaultTrustLists(trustLists)) verifierConfig.trustLists = trustLists;
+        if(trustedIssuerCertificates.length > 0) {
+            verifierConfig.trustedIssuerRegistry = { trustedIssuerCertificates };
+        }
 
         return verifierConfig;
     }
@@ -264,6 +241,8 @@ class IndexPage {
 
     updateVerifierSample(verifierConfig, verifierConfigElement) {
         const hasVerifierConfig = Object.keys(verifierConfig).length > 0;
+        const hasTrustListConstants = verifierConfig.trustLists?.length > 0;
+        document.getElementById('trustListImport')?.classList.toggle('hidden', !hasTrustListConstants);
         document.getElementById('verifierDefaultLine')?.classList.toggle('hidden', hasVerifierConfig);
         document.getElementById('verifierConfiguredStart')?.classList.toggle('hidden', !hasVerifierConfig);
         document.getElementById('verifierConfiguredEnd')?.classList.toggle('hidden', !hasVerifierConfig);
@@ -286,10 +265,13 @@ class IndexPage {
         const comma = includeComma ? ',' : '';
         const keyHtml = `<span class="text-blue-600">${this.escapeHtml(key)}</span>`;
         if(Array.isArray(value)) {
+            if(value.length === 0) {
+                return this.formatSampleLine(`${this.formatIndent(indentLevel)}${keyHtml}: []${comma}`);
+            }
             return [
                 this.formatSampleLine(`${this.formatIndent(indentLevel)}${keyHtml}: [`),
                 ...value.map((item, index) => this.formatSampleLine(
-                    `${this.formatIndent(indentLevel + 1)}${this.formatValue(item)}${index < value.length - 1 ? ',' : ''}`
+                    `${this.formatIndent(indentLevel + 1)}${this.formatValue(item, key)}${index < value.length - 1 ? ',' : ''}`
                 )),
                 this.formatSampleLine(`${this.formatIndent(indentLevel)}]${comma}`),
             ].join('');
@@ -304,7 +286,13 @@ class IndexPage {
         return this.formatSampleLine(`${this.formatIndent(indentLevel)}${keyHtml}: ${this.formatValue(value)}${comma}`);
     }
 
-    formatValue(value) {
+    formatValue(value, key) {
+        if(key === 'trustLists') {
+            const constant = Object.entries(TrustList).find(([, trustList]) => trustList === value);
+            if(constant) {
+                return `<span class="text-blue-600">TrustList.${this.escapeHtml(constant[0])}</span>`;
+            }
+        }
         if(typeof value === 'string') {
             return `<span class="text-green-600">'${this.escapeHtml(this.escapeJavaScriptString(value))}'</span>`;
         }

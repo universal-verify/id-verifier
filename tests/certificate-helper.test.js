@@ -1,15 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    certificateToPem,
-    getCertificateDisplayName,
-    getCertificateSubject,
-    getDocumentSignerCertificateValidityReason,
-    getIssuerCertificateValidityReason,
-    getSubjectKeyIdentifier,
-    parsePemCertificate,
-} from '../scripts/certificate-helper.js';
-import { UntrustedReason } from '../scripts/constants.js';
+import { parsePemCertificate } from 'trusted-issuer-registry';
+import { parseX5Chain, x509ToWebCryptoKey } from '../scripts/certificate-helper.js';
 
 const TEST_CERT = `-----BEGIN CERTIFICATE-----
 MIIBkDCCATagAwIBAgIUbHUBhA6c7mDVnFLnyOOk1xYW4y0wCgYIKoZIzj0EAwIw
@@ -23,60 +15,24 @@ IB/Sf/Rrfe/NtvP40wiqvxgh4tmsaFhb4NafBER6zj1CAiEAyiGwvQoWBMzFPDW6
 9Mf/Q3Yuy5xMPy2WiUkJeN2BjTY=
 -----END CERTIFICATE-----`;
 
-test('certificateToPem formats a parsed certificate as PEM', () => {
+test('parseX5Chain reads the first signer certificate and handles sliced buffers', () => {
     const certificate = parsePemCertificate(TEST_CERT);
-    const pem = certificateToPem(certificate);
+    const bytes = new Uint8Array(certificate.toSchema().toBER());
+    const padded = new Uint8Array(bytes.length + 10);
+    padded.set(bytes, 5);
+    const chainEntry = padded.subarray(5, bytes.length + 5);
 
-    assert.equal(getPemContent(pem), getPemContent(TEST_CERT));
-    assert.equal(pem.startsWith('-----BEGIN CERTIFICATE-----\r\n'), true);
-    assert.equal(pem.endsWith('\r\n-----END CERTIFICATE-----'), true);
-    for(const line of getPemLines(pem)) {
-        assert.ok(line.length <= 64);
+    for(const chain of [chainEntry, [chainEntry, new Uint8Array(0)]]) {
+        assert.deepEqual(parseX5Chain(chain).toSchema().toBER(), certificate.toSchema().toBER());
     }
+    assert.equal(parseX5Chain(null), null);
+    assert.equal(parseX5Chain([]), null);
 });
 
-test('certificate helper extracts issuer metadata from a parsed certificate', () => {
-    const certificate = parsePemCertificate(TEST_CERT);
+test('x509ToWebCryptoKey imports the signer key for COSE signature verification', async () => {
+    const key = await x509ToWebCryptoKey(parsePemCertificate(TEST_CERT), -7);
 
-    assert.equal(getSubjectKeyIdentifier(certificate), 'oTjQGL-pbAdBhwNBWnrhHyVkkuI');
-    assert.deepEqual(getCertificateSubject(certificate), {
-        commonName: 'Test IACA',
-    });
-    assert.equal(getCertificateDisplayName(certificate), 'Test IACA');
-});
-
-const getPemContent = (pem) => {
-    return pem
-        .replace(/-----BEGIN CERTIFICATE-----/, '')
-        .replace(/-----END CERTIFICATE-----/, '')
-        .replace(/\s/g, '');
-};
-
-const getPemLines = (pem) => {
-    return pem
-        .split(/\r?\n/)
-        .filter(line => !line.includes('CERTIFICATE') && line.length > 0);
-};
-
-
-test('certificate helper reports certificate validity reasons', () => {
-    const certificate = parsePemCertificate(TEST_CERT);
-
-    assert.equal(getDocumentSignerCertificateValidityReason(certificate, new Date('2026-10-01T00:00:00Z')), null);
-    assert.equal(
-        getDocumentSignerCertificateValidityReason(certificate, new Date('2026-09-01T00:00:00Z')),
-        UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID
-    );
-    assert.equal(
-        getDocumentSignerCertificateValidityReason(certificate, new Date('2037-01-01T00:00:00Z')),
-        UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_EXPIRED
-    );
-    assert.equal(
-        getIssuerCertificateValidityReason({ data: TEST_CERT }, new Date('2026-09-01T00:00:00Z')),
-        UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID
-    );
-    assert.equal(
-        getIssuerCertificateValidityReason({ data: TEST_CERT }, new Date('2037-01-01T00:00:00Z')),
-        UntrustedReason.ISSUER_CERTIFICATE_EXPIRED
-    );
+    assert.equal(key.type, 'public');
+    assert.deepEqual(key.algorithm, { name: 'ECDSA', namedCurve: 'P-256' });
+    assert.deepEqual(key.usages, ['verify']);
 });

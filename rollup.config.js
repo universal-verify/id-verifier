@@ -3,7 +3,6 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 
 const externalDependencies = [
     '@hpke/core',
-    'asn1js',
     'cbor2',
     'pkijs',
     'trusted-issuer-registry',

@@ -1,5 +1,6 @@
 import { DocumentType, Protocol, CredentialFormat, ProtocolFormats, Claim, InvalidReason, UntrustedReason, TrustList } from './constants.js';
-import { normalizeIssuerCertificates } from './local-issuer-helper.js';
+import { Registry, RevocationCheckMode, TrustScope } from 'trusted-issuer-registry';
+import { checkRegistryDeprecation } from './trusted-issuer-registry-helper.js';
 import OpenID4VPProtocolHelper from './openid-4vp-protocol-helper.js';
 import MDOCProtocolHelper from './mdoc-protocol-helper.js';
 
@@ -11,16 +12,9 @@ import MDOCProtocolHelper from './mdoc-protocol-helper.js';
 export class Verifier {
     constructor(options = {}) {
         options = options || {};
-        const registry = options.trustedIssuerRegistry || {};
-        this.trustedIssuerRegistry = {
-            enabled: registry.enabled !== false,
-            trustLists: Array.isArray(registry.trustLists)
-                ? [...registry.trustLists]
-                : registry.trustLists || Object.values(TrustList),
-        };
-        this.trustedIssuerCertificates = normalizeIssuerCertificates(options.trustedIssuerCertificates);
-        this.crl = normalizeCRLConfig(options.crl);
-        this.crlCache = new Map();
+        this.trustLists = [...(options.trustLists ?? Object.values(TrustList))];
+        this.trustScope = options.trustScope;
+        this._registry = new Registry(options.trustedIssuerRegistry || {});
     }
 
     /**
@@ -184,15 +178,13 @@ export class Verifier {
             throw new Error('Credential response missing data');
 
         const verificationOptions = {
-            trustedIssuerRegistryEnabled: this.trustedIssuerRegistry.enabled,
-            trustLists: this.trustedIssuerRegistry.trustLists,
-            trustedIssuerCertificates: this.trustedIssuerCertificates,
-            checkCRL: this.crl.enabled,
-            crlTimeout: this.crl.timeout,
-            crlCacheEnabled: this.crl.cache.enabled,
-            crlCacheTTL: this.crl.cache.ttl,
-            crlCache: this.crlCache,
+            registry: this._registry,
+            trustLists: this.trustLists,
+            trustScope: this.trustScope,
         };
+        if(verificationOptions.trustLists.length > 0) {
+            checkRegistryDeprecation(this._registry);//No need to wait for this to complete
+        }
 
         if(credentials.protocol === Protocol.OPENID4VP) {
             return await OpenID4VPProtocolHelper.verify(credentials.data, origin, nonce, verificationOptions);
@@ -203,19 +195,6 @@ export class Verifier {
         }
     }
 }
-
-const normalizeCRLConfig = (crl = {}) => {
-    crl = crl || {};
-    const cache = crl.cache || {};
-    return {
-        enabled: crl.enabled === true,
-        timeout: crl.timeout,
-        cache: {
-            enabled: cache.enabled,
-            ttl: cache.ttl,
-        },
-    };
-};
 
 /**
  * Helper function to generate a nonce for request security
@@ -256,4 +235,6 @@ export {
     InvalidReason,
     UntrustedReason,
     TrustList,
+    TrustScope,
+    RevocationCheckMode,
 };

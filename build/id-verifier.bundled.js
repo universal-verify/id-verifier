@@ -1,289 +1,3 @@
-/**
- * Supported trust lists
- */
-const TrustList = {
-    UV: 'uv',
-    AAMVA_DTS: 'aamva_dts',
-};
-
-const USER_PROVIDED_TRUST_LIST = 'user_provided';
-
-/**
- * Reasons a document may fail cryptographic or data-integrity verification
- */
-const InvalidReason = {
-    MSO_NOT_YET_VALID: 'MSO is not yet valid',
-    MSO_EXPIRED: 'MSO is expired',
-    ISSUER_AUTH_SIGNATURE_INVALID: 'IssuerAuth signature verification failed',
-    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is missing from IssuerAuth x5chain',
-    DEVICE_AUTH_FAILED: 'Failed to verify device authentication',
-    CLAIM_DIGEST_MISMATCH: 'Claim digest does not match IssuerAuth value digest',
-};
-
-/**
- * Reasons issuer trust evaluation may fail
- */
-const UntrustedReason = {
-    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is required to determine issuer trust',
-    DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING: 'Document signer certificate does not contain an Authority Key Identifier',
-    DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID: 'Document signer certificate is not yet valid',
-    DOCUMENT_SIGNER_CERTIFICATE_EXPIRED: 'Document signer certificate is expired',
-    ISSUER_FETCH_FAILED: 'Unable to retrieve issuer from trusted issuer registry',
-    ISSUER_CERTIFICATE_NOT_FOUND: 'No trusted issuer certificate found to validate the document signer certificate',
-    ISSUER_CERTIFICATE_NOT_YET_VALID: 'Issuer certificate is not yet valid',
-    ISSUER_CERTIFICATE_EXPIRED: 'Issuer certificate is expired',
-    ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS: 'Issuer certificate is not trusted by the requested trust lists',
-    DOCUMENT_SIGNER_CERTIFICATE_REVOKED: 'Document signer certificate has been revoked by CRL',
-};
-
-/**
- * Supported document types for common identification documents
- */
-const DocumentType = {
-    PHOTO_ID: 'org.iso.23220.photoid.1',
-    EU_PERSONAL_ID: 'eu.europa.ec.eudi.pid.1',
-    JAPAN_MY_NUMBER_CARD: 'org.iso.23220.1.jp.mnc',
-    MOBILE_DRIVERS_LICENSE: 'org.iso.18013.5.1.mDL',
-};
-
-/**
- * Supported protocols for credential exchange
- */
-const Protocol = {
-    MDOC: 'org-iso-mdoc',
-    OPENID4VP: 'openid4vp-v1-unsigned'
-};
-
-/**
- * Supported credential formats
- */
-const CredentialFormat = {
-    MSO_MDOC: 'mso_mdoc',
-    //DC_SD_JWT: 'dc+sd-jwt',
-    //LDP_VC: 'ldp_vc',
-    //JWT_VC_JSON: 'jwt_vc_json'
-};
-
-const ProtocolFormats = {
-    [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC],//CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
-    [Protocol.MDOC]: [CredentialFormat.MSO_MDOC]
-};
-
-/**
- * Supported claim fields that can be requested
- */
-const Claim = {
-    AGE: 'age',
-    AGE_OVER_18: 'age_over_18',
-    AGE_OVER_21: 'age_over_21',
-    BIRTH_DATE: 'birth_date',
-    BIRTH_YEAR: 'birth_year',
-    FAMILY_NAME: 'family_name',
-    GIVEN_NAME: 'given_name',
-    SEX: 'sex',
-    HEIGHT: 'height',
-    WEIGHT: 'weight',
-    EYE_COLOR: 'eye_color',
-    HAIR_COLOR: 'hair_color',
-    ADDRESS: 'address',
-    CITY: 'city',
-    STATE: 'state',
-    POSTAL_CODE: 'postal_code',
-    COUNTRY: 'country',
-    NATIONALITY: 'nationality',
-    PLACE_OF_BIRTH: 'place_of_birth',
-    DOCUMENT_NUMBER: 'document_number',
-    ISSUING_AUTHORITY: 'issuing_authority',
-    ISSUING_COUNTRY: 'issuing_country',
-    ISSUING_JURISDICTION: 'issuing_jurisdiction',
-    ISSUE_DATE: 'issue_date',
-    EXPIRY_DATE: 'expiry_date',
-    DRIVING_PRIVILEGES: 'driving_privileges',
-    PORTRAIT: 'portrait',
-    SIGNATURE: 'signature',
-};
-
-const ClaimMappings = {
-    [CredentialFormat.MSO_MDOC]: {
-        [DocumentType.PHOTO_ID]: {
-            [Claim.GIVEN_NAME]: ['org.iso.23220.1', 'given_name_unicode'],
-            [Claim.FAMILY_NAME]: ['org.iso.23220.1', 'family_name_unicode'],
-            [Claim.BIRTH_DATE]: ['org.iso.23220.1', 'birth_date'],
-            [Claim.BIRTH_YEAR]: ['org.iso.23220.1', 'age_birth_year'],
-            [Claim.AGE]: ['org.iso.23220.1', 'age_in_years'],
-            [Claim.AGE_OVER_18]: ['org.iso.23220.1', 'age_over_18'],
-            [Claim.AGE_OVER_21]: ['org.iso.23220.1', 'age_over_21'],
-            //[Claim.HEIGHT]: ['', ''],
-            //[Claim.WEIGHT]: ['', ''],
-            //[Claim.EYE_COLOR]: ['', ''],
-            //[Claim.HAIR_COLOR]: ['', ''],
-            [Claim.ADDRESS]: ['org.iso.23220.1', 'resident_address_unicode'],
-            [Claim.CITY]: ['org.iso.23220.1', 'resident_city_unicode'],
-            [Claim.STATE]: ['org.iso.23220.photoid.1', 'resident_state'],
-            [Claim.POSTAL_CODE]: ['org.iso.23220.1', 'resident_postal_code'],
-            [Claim.COUNTRY]: ['org.iso.23220.1', 'resident_country'],
-            [Claim.NATIONALITY]: ['org.iso.23220.1', 'nationality'],
-            [Claim.SEX]: ['org.iso.23220.1', 'sex'],
-            [Claim.PLACE_OF_BIRTH]: ['org.iso.23220.1', 'birthplace'],
-            [Claim.DOCUMENT_NUMBER]: ['org.iso.23220.1', 'document_number'],
-            [Claim.ISSUING_AUTHORITY]: ['org.iso.23220.1', 'issuing_authority_unicode'],
-            [Claim.ISSUING_COUNTRY]: ['org.iso.23220.1', 'issuing_country'],
-            [Claim.ISSUING_JURISDICTION]: ['org.iso.23220.1', 'issuing_subdivision'],
-            [Claim.ISSUE_DATE]: ['org.iso.23220.1', 'issue_date'],
-            [Claim.EXPIRY_DATE]: ['org.iso.23220.1', 'expiry_date'],
-            //[Claim.DRIVING_PRIVILEGES]: ['', ''],
-            [Claim.PORTRAIT]: ['org.iso.23220.1', 'portrait'],
-            //[Claim.SIGNATURE]: ['', '']
-        },
-        [DocumentType.EU_PERSONAL_ID]: {
-            [Claim.GIVEN_NAME]: ['eu.europa.ec.eudi.pid.1', 'given_name'],
-            [Claim.FAMILY_NAME]: ['eu.europa.ec.eudi.pid.1', 'family_name'],
-            [Claim.BIRTH_DATE]: ['eu.europa.ec.eudi.pid.1', 'birth_date'],
-            [Claim.BIRTH_YEAR]: ['eu.europa.ec.eudi.pid.1', 'age_birth_year'],
-            [Claim.AGE]: ['eu.europa.ec.eudi.pid.1', 'age_in_years'],
-            [Claim.AGE_OVER_18]: ['eu.europa.ec.eudi.pid.1', 'age_over_18'],
-            [Claim.AGE_OVER_21]: ['eu.europa.ec.eudi.pid.1', 'age_over_21'],
-            //[Claim.HEIGHT]: ['', 'height'],
-            //[Claim.WEIGHT]: ['', 'weight'],
-            //[Claim.EYE_COLOR]: ['', 'eye_colour'],
-            //[Claim.HAIR_COLOR]: ['', 'hair_colour'],
-            [Claim.ADDRESS]: ['eu.europa.ec.eudi.pid.1', 'resident_address'],
-            [Claim.CITY]: ['eu.europa.ec.eudi.pid.1', 'resident_city'],
-            [Claim.STATE]: ['eu.europa.ec.eudi.pid.1', 'resident_state'],
-            [Claim.POSTAL_CODE]: ['eu.europa.ec.eudi.pid.1', 'resident_postal_code'],
-            [Claim.COUNTRY]: ['eu.europa.ec.eudi.pid.1', 'resident_country'],
-            [Claim.NATIONALITY]: ['eu.europa.ec.eudi.pid.1', 'nationality'],
-            [Claim.SEX]: ['eu.europa.ec.eudi.pid.1', 'sex'],
-            [Claim.PLACE_OF_BIRTH]: ['eu.europa.ec.eudi.pid.1', 'birth_place'],
-            [Claim.DOCUMENT_NUMBER]: ['eu.europa.ec.eudi.pid.1', 'document_number'],
-            [Claim.ISSUING_AUTHORITY]: ['eu.europa.ec.eudi.pid.1', 'issuing_authority'],
-            [Claim.ISSUING_COUNTRY]: ['eu.europa.ec.eudi.pid.1', 'issuing_country'],
-            [Claim.ISSUING_JURISDICTION]: ['eu.europa.ec.eudi.pid.1', 'issuing_jurisdiction'],
-            [Claim.ISSUE_DATE]: ['eu.europa.ec.eudi.pid.1', 'issuance_date'],
-            [Claim.EXPIRY_DATE]: ['eu.europa.ec.eudi.pid.1', 'expiry_date'],
-            //[Claim.DRIVING_PRIVILEGES]: ['', 'driving_privileges'],
-            [Claim.PORTRAIT]: ['eu.europa.ec.eudi.pid.1', 'portrait'],
-            //[Claim.SIGNATURE]: ['', 'signature_usual_mark']
-        },
-        [DocumentType.JAPAN_MY_NUMBER_CARD]: {
-            [Claim.GIVEN_NAME]: ['org.iso.23220.1', 'given_name_unicode'],
-            [Claim.FAMILY_NAME]: ['org.iso.23220.1', 'family_name_unicode'],
-            [Claim.BIRTH_DATE]: ['org.iso.23220.1', 'birth_date'],
-            [Claim.BIRTH_YEAR]: ['org.iso.23220.1', 'age_birth_year'],
-            [Claim.AGE]: ['org.iso.23220.1', 'age_in_years'],
-            [Claim.AGE_OVER_18]: ['org.iso.23220.1', 'age_over_18'],
-            [Claim.AGE_OVER_21]: ['org.iso.23220.1', 'age_over_21'],
-            //[Claim.HEIGHT]: ['', ''],
-            //[Claim.WEIGHT]: ['', ''],
-            //[Claim.EYE_COLOR]: ['', ''],
-            //[Claim.HAIR_COLOR]: ['', ''],
-            [Claim.ADDRESS]: ['org.iso.23220.1.jp', 'resident_address_unicode'],
-            [Claim.CITY]: ['org.iso.23220.1', 'resident_city_unicode'],
-            //[Claim.STATE]: ['', 'resident_state'],
-            [Claim.POSTAL_CODE]: ['org.iso.23220.1', 'resident_postal_code'],
-            [Claim.COUNTRY]: ['org.iso.23220.1', 'resident_country'],
-            [Claim.NATIONALITY]: ['org.iso.23220.1', 'nationality'],
-            [Claim.SEX]: ['org.iso.23220.1', 'sex'],
-            [Claim.PLACE_OF_BIRTH]: ['org.iso.23220.1', 'birthplace'],
-            [Claim.DOCUMENT_NUMBER]: ['org.iso.23220.1', 'document_number'],
-            [Claim.ISSUING_AUTHORITY]: ['org.iso.23220.1', 'issuing_authority_unicode'],
-            [Claim.ISSUING_COUNTRY]: ['org.iso.23220.1', 'issuing_country'],
-            [Claim.ISSUING_JURISDICTION]: ['org.iso.23220.1', 'issuing_subdivision'],
-            [Claim.ISSUE_DATE]: ['org.iso.23220.1', 'issue_date'],
-            [Claim.EXPIRY_DATE]: ['org.iso.23220.1', 'expiry_date'],
-            //[Claim.DRIVING_PRIVILEGES]: ['', ''],
-            [Claim.PORTRAIT]: ['org.iso.23220.1', 'portrait'],
-            //[Claim.SIGNATURE]: ['', '']
-        },
-        [DocumentType.MOBILE_DRIVERS_LICENSE]: {
-            [Claim.GIVEN_NAME]: ['org.iso.18013.5.1', 'given_name'],
-            [Claim.FAMILY_NAME]: ['org.iso.18013.5.1', 'family_name'],
-            [Claim.BIRTH_DATE]: ['org.iso.18013.5.1', 'birth_date'],
-            [Claim.BIRTH_YEAR]: ['org.iso.18013.5.1', 'age_birth_year'],
-            [Claim.AGE]: ['org.iso.18013.5.1', 'age_in_years'],
-            [Claim.AGE_OVER_18]: ['org.iso.18013.5.1', 'age_over_18'],
-            [Claim.AGE_OVER_21]: ['org.iso.18013.5.1', 'age_over_21'],
-            [Claim.HEIGHT]: ['org.iso.18013.5.1', 'height'],
-            [Claim.WEIGHT]: ['org.iso.18013.5.1', 'weight'],
-            [Claim.EYE_COLOR]: ['org.iso.18013.5.1', 'eye_colour'],
-            [Claim.HAIR_COLOR]: ['org.iso.18013.5.1', 'hair_colour'],
-            [Claim.ADDRESS]: ['org.iso.18013.5.1', 'resident_address'],
-            [Claim.CITY]: ['org.iso.18013.5.1', 'resident_city'],
-            [Claim.STATE]: ['org.iso.18013.5.1', 'resident_state'],
-            [Claim.POSTAL_CODE]: ['org.iso.18013.5.1', 'resident_postal_code'],
-            [Claim.COUNTRY]: ['org.iso.18013.5.1', 'resident_country'],
-            [Claim.NATIONALITY]: ['org.iso.18013.5.1', 'nationality'],
-            [Claim.SEX]: ['org.iso.18013.5.1', 'sex'],
-            [Claim.PLACE_OF_BIRTH]: ['org.iso.18013.5.1', 'birth_place'],
-            [Claim.DOCUMENT_NUMBER]: ['org.iso.18013.5.1', 'document_number'],
-            [Claim.ISSUING_AUTHORITY]: ['org.iso.18013.5.1', 'issuing_authority'],
-            [Claim.ISSUING_COUNTRY]: ['org.iso.18013.5.1', 'issuing_country'],
-            [Claim.ISSUING_JURISDICTION]: ['org.iso.18013.5.1', 'issuing_jurisdiction'],
-            [Claim.ISSUE_DATE]: ['org.iso.18013.5.1', 'issue_date'],
-            [Claim.EXPIRY_DATE]: ['org.iso.18013.5.1', 'expiry_date'],
-            [Claim.DRIVING_PRIVILEGES]: ['org.iso.18013.5.1', 'driving_privileges'],
-            [Claim.PORTRAIT]: ['org.iso.18013.5.1', 'portrait'],
-            [Claim.SIGNATURE]: ['org.iso.18013.5.1', 'signature_usual_mark']
-        }
-    }
-};
-
-const REVERSE_CLAIM_MAPPINGS = {};
-for(const format in ClaimMappings) {
-    REVERSE_CLAIM_MAPPINGS[format] = {};
-    for(const documentType in ClaimMappings[format]) {
-        REVERSE_CLAIM_MAPPINGS[format][documentType] = {};
-        for(const claim in ClaimMappings[format][documentType]) {
-            let mappedValue = ClaimMappings[format][documentType][claim];
-            mappedValue = mappedValue[mappedValue.length - 1];
-            REVERSE_CLAIM_MAPPINGS[format][documentType][mappedValue] = claim;
-        }
-    }
-}
-
-const CoseAlgToWebCrypto = {
-    [-7]:   { name: 'ECDSA', hash: 'SHA-256', namedCurve: 'P-256' },       // ES256
-    [-35]:  { name: 'ECDSA', hash: 'SHA-384', namedCurve: 'P-384' },       // ES384
-    [-36]:  { name: 'ECDSA', hash: 'SHA-512', namedCurve: 'P-521' },       // ES512
-
-    [-37]:  { name: 'RSASSA-PSS', hash: 'SHA-256' },                       // PS256
-    [-38]:  { name: 'RSASSA-PSS', hash: 'SHA-384' },                       // PS384
-    [-39]:  { name: 'RSASSA-PSS', hash: 'SHA-512' },                       // PS512
-
-    [-257]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },                // RS256
-    [-258]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' },                // RS384
-    [-259]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-512' }                 // RS512
-};
-
-const CoseKtyMap = {
-    1: 'OKP',
-    2: 'EC',
-    3: 'RSA'
-};
-
-const CoseCrvMap = {
-    // EC2 Curves
-    1: 'P-256',
-    2: 'P-384',
-    3: 'P-521',
-    // OKP Curves
-    6: 'Ed25519',
-    7: 'Ed448',
-    8: 'X25519',
-    9: 'X448'
-};
-
-const CoseKeyAlgoMap = {
-    'EC-P-256': { name: 'ECDSA', namedCurve: 'P-256' },
-    'EC-P-384': { name: 'ECDSA', namedCurve: 'P-384' },
-    'EC-P-521': { name: 'ECDSA', namedCurve: 'P-521' },
-    'OKP-Ed25519': { name: 'Ed25519' },
-    'OKP-Ed448': { name: 'Ed448' },
-    'OKP-X25519': { name: 'ECDH' },
-    'OKP-X448': { name: 'ECDH' },
-    'RSA': { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-};
-
 /*!
  * MIT License
  * 
@@ -24870,68 +24584,6 @@ function initCryptoEngine() {
 
 initCryptoEngine();
 
-/**
- * Convert a base64 string to a Uint8Array
- * @param {string} base64 - The base64 string
- * @returns {Uint8Array} - The Uint8Array
- */
-const base64ToUint8Array$1 = (base64) => {
-    if(typeof Buffer == 'function') {
-        return new Uint8Array(Buffer.from(base64, 'base64'));
-    } else if(typeof atob === 'function') {
-        const raw = atob(base64);
-        const bytes = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) {
-            bytes[i] = raw.charCodeAt(i);
-        }
-        return bytes;
-    } else {
-        throw new Error('No base64 decoder available in this environment');
-    }
-};
-
-/**
- * Convert a base64url string to a Uint8Array
- * @param {string} base64url - The base64url string
- * @returns {Uint8Array} - The Uint8Array
- */
-const base64urlToUint8Array = (base64url) => {
-    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-    const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-    return base64ToUint8Array$1(base64 + pad);
-};
-
-const bufferToBase64 = (input) => {
-    let bytes;
-    if (input instanceof Uint8Array) {
-        bytes = input;
-    } else if (input instanceof ArrayBuffer) {
-        bytes = new Uint8Array(input);
-    } else if (input.buffer instanceof ArrayBuffer) {
-        bytes = new Uint8Array(input.buffer).slice(input.byteOffset, input.byteOffset + input.byteLength);
-    } else {
-        throw new Error('Invalid input type');
-    }
-
-    // Convert to base64 string
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = typeof Buffer == 'function'
-        ? Buffer.from(binary, 'binary').toString('base64')
-        : btoa(binary);
-
-    return base64;
-};
-
-const bufferToBase64Url = (input) => {
-    const base64 = bufferToBase64(input);
-
-    // Convert base64 to base64url
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-};
-
 let gap = '';
 let indent = '';
 let rep;
@@ -25005,7 +24657,9 @@ function stringify(value, replacer, space, keyCompare) {
 }
 
 const MINOR_VERSION = '0.2';
+
 const REGISTRY_URL_BASE = `https://cdn.jsdelivr.net/npm/trusted-issuer-registry@${MINOR_VERSION}`;
+
 const PUBLIC_SIGNING_CERT = `-----BEGIN CERTIFICATE-----
 MIIBmjCCAUGgAwIBAgIULVFa5+g4perqTRJKDErRMXThCmAwCgYIKoZIzj0EAwIw
 IzEhMB8GA1UEAwwYVW5pdmVyc2FsIFZlcmlmeSBSb290IENBMB4XDTI2MTAwMjEz
@@ -25018,118 +24672,305 @@ zj0EAwIDRwAwRAIgLgTLhVKk/yv7aLvy2XNV224q4iFRL+26F/G3/MKF9dkCIGa4
 jw4Og3tKk0nt09p7ZWpg4dOMYxnGL5L8kWM7UDIF
 -----END CERTIFICATE-----`;
 
-const verifySignatureWithPem = async (pemKey, signature, data) => {
+const TrustList = {
+    UV: 'uv',
+    AAMVA_DTS: 'aamva_dts',
+};
+
+const TrustScope = {
+    GOVERNMENT_ISSUED_ID: 'government_issued_id',
+    DOCUMENT_SIGNING: 'document_signing',
+};
+
+const RevocationCheckMode = {
+    SKIP: 'skip',
+    BEST_EFFORT: 'best_effort',
+    REQUIRED: 'required',
+};
+
+const UntrustedReason = {
+    CERTIFICATE_MISSING: 'certificate_missing',
+    CERTIFICATE_AKI_MISSING: 'certificate_aki_missing',
+    CERTIFICATE_NOT_YET_VALID: 'certificate_not_yet_valid',
+    CERTIFICATE_EXPIRED: 'certificate_expired',
+    CERTIFICATE_REVOKED: 'certificate_revoked',
+    REVOCATION_STATUS_UNDETERMINED: 'revocation_status_undetermined',
+    ISSUER_FETCH_FAILED: 'issuer_fetch_failed',
+    ISSUER_CERTIFICATE_NOT_FOUND: 'issuer_certificate_not_found',
+    CERTIFICATE_SIGNATURE_VERIFICATION_FAILED: 'certificate_signature_verification_failed',
+    ISSUER_CERTIFICATE_NOT_YET_VALID: 'issuer_certificate_not_yet_valid',
+    ISSUER_CERTIFICATE_EXPIRED: 'issuer_certificate_expired',
+    ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS: 'issuer_certificate_not_in_trust_lists',
+    ISSUER_MISSING_REQUIRED_TRUST_SCOPE: 'issuer_missing_required_trust_scope',
+};
+
+const deepCopy = (value) => JSON.parse(JSON.stringify(value));
+
+const base64ToUint8Array$1 = (base64) => {
+    if(typeof Buffer === 'function') {
+        return new Uint8Array(Buffer.from(base64, 'base64'));
+    }
+
+    if(typeof atob !== 'function') {
+        throw new Error('No base64 decoder available in this environment');
+    }
+
+    const raw = atob(base64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) {
+        bytes[i] = raw.charCodeAt(i);
+    }
+    return bytes;
+};
+
+const uint8ArrayToBase64 = (bytes) => {
+    if(typeof Buffer === 'function') {
+        return Buffer.from(bytes).toString('base64');
+    }
+
+    if(typeof btoa !== 'function') {
+        throw new Error('No base64 encoder available in this environment');
+    }
+
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+};
+
+const bufferToBase64Url$1 = (bufferSource) => {
+    const bytes = bufferSource instanceof Uint8Array
+        ? bufferSource
+        : ArrayBuffer.isView(bufferSource)
+            ? new Uint8Array(bufferSource.buffer, bufferSource.byteOffset, bufferSource.byteLength)
+            : new Uint8Array(bufferSource);
+
+    return uint8ArrayToBase64(bytes)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+};
+
+const SUBJECT_KEY_IDENTIFIER_OID = '2.5.29.14';
+const AUTHORITY_KEY_IDENTIFIER_OID = '2.5.29.35';
+const RSA_PSS_OID = '1.2.840.113549.1.1.10';
+const MGF1_OID = '1.2.840.113549.1.1.8';
+const SUBJECT_ATTRIBUTE_NAMES = {
+    '2.5.4.3': 'commonName',
+    '2.5.4.6': 'country',
+    '2.5.4.7': 'locality',
+    '2.5.4.8': 'state',
+    '2.5.4.10': 'organization',
+    '2.5.4.11': 'organizationalUnit',
+};
+
+const parsePemCertificate = (pemString) => {
+    if(typeof pemString !== 'string') {
+        throw new Error('PEM certificate must be a string');
+    }
+
+    const pemContent = pemString
+        .replace(/-----BEGIN CERTIFICATE-----/, '')
+        .replace(/-----END CERTIFICATE-----/, '')
+        .replace(/\s/g, '');
+
+    const bytes = base64ToUint8Array$1(pemContent);
+    return Certificate.fromBER(bytes);
+};
+
+const normalizeCertificate = (certificate) => {
+    if(certificate instanceof Certificate) return certificate;
+    // Bundled consumers may have a separate copy of PKIjs with different class identities.
+    return parsePemCertificate(typeof certificate === 'string' ? certificate : certificateToPem(certificate));
+};
+
+const certificateToPem = (x509Cert) => {
+    const certBytes = new Uint8Array(x509Cert.toSchema().toBER());
+    const base64 = uint8ArrayToBase64(certBytes);
+    const pemLines = [];
+    for (let i = 0; i < base64.length; i += 64) {
+        pemLines.push(base64.slice(i, i + 64));
+    }
+
+    return `-----BEGIN CERTIFICATE-----\n${pemLines.join('\n')}\n-----END CERTIFICATE-----`;
+};
+
+const parseExtensionValue = (extension, ExtensionValue, errorMessage) => {
+    const value = extension.parsedValue;
+    const tag = ExtensionValue.prototype instanceof BaseBlock ? new ExtensionValue().idBlock : null;
+    const valid = tag
+        ? value?.idBlock?.tagClass === tag.tagClass && value.idBlock.tagNumber === tag.tagNumber && !value.idBlock.isConstructed
+        : value instanceof ExtensionValue;
+    if(!valid || value.parsingError || value.error) throw new Error(errorMessage);
+    return value;
+};
+
+const getSubjectKeyIdentifier = (x509Cert) => {
+    if(!x509Cert) return null;
+    const subjectKeyId = x509Cert.extensions?.find(ext => ext.extnID === SUBJECT_KEY_IDENTIFIER_OID);
+    if (!subjectKeyId) return null;
+
     try {
-        const pemContent = pemKey
-            .replace(/-----BEGIN [^-]+-----/, '')
-            .replace(/-----END [^-]+-----/, '')
-            .replace(/\s+/g, '');
+        const value = parseExtensionValue(subjectKeyId, OctetString, 'Unable to parse Subject Key Identifier');
+        const bytes = value.valueBlock.valueHexView;
+        return bytes.byteLength ? bufferToBase64Url$1(bytes) : null;
+    } catch (e) {
+        console.error('Could not parse SubjectKeyIdentifier value', e);
+    }
+    return null;
+};
 
-        // Convert base64 to binary
-        const bytes = base64ToUint8Array(pemContent);
+const getAuthorityKeyIdentifier = (x509Cert) => {
+    const extension = x509Cert.extensions?.find(ext => ext.extnID === AUTHORITY_KEY_IDENTIFIER_OID);
+    if(!extension) return null;
 
-        const asn1 = fromBER(bytes.buffer);
-        const cert = new Certificate({ schema: asn1.result });
+    try {
+        const authorityKeyIdentifier = parseExtensionValue(extension, AuthorityKeyIdentifier, 'Unable to parse Authority Key Identifier');
+        const bytes = authorityKeyIdentifier.keyIdentifier?.valueBlock.valueHexView;
+        return bytes?.byteLength ? bufferToBase64Url$1(bytes) : null;
+    } catch(error) {
+        return null;
+    }
+};
+
+const isCertificateNotYetValid = (certificate, now = new Date()) => certificate.notBefore.value > now;
+
+const isCertificateExpired = (certificate, now = new Date()) => certificate.notAfter.value < now;
+
+const ensurePKIjsCryptoEngine = () => {
+    try {
+        getCrypto(true);
+    } catch(error) {
+        if(!globalThis.crypto?.subtle) throw error;
+        setEngine('webcrypto', new CryptoEngine({ name: 'webcrypto', crypto: globalThis.crypto }));
+    }
+};
+
+const verifyCertificateSignature = async (certificate, issuerCertificate) => {
+    certificate = normalizeCertificate(certificate);
+    issuerCertificate = normalizeCertificate(issuerCertificate);
+    if(!certificate.issuer.isEqual(issuerCertificate.subject)) return false;
+    try {
+        return await certificate.verify(issuerCertificate, { verifyWithPublicKey: verifySignedData });
+    } catch(error) {
+        return false;
+    }
+};
+
+const getCertificateSubject = (x509Cert) => {
+    const subject = {};
+    const attributes = x509Cert?.subject?.typesAndValues || [];
+    for (const attribute of attributes) {
+        const name = SUBJECT_ATTRIBUTE_NAMES[attribute.type];
+        if(!name) continue;
+        const value = getAttributeValue(attribute);
+        if(value) subject[name] = value;
+    }
+    return subject;
+};
+
+const getCertificateDisplayName = (x509Cert) => {
+    const subject = getCertificateSubject(x509Cert);
+    return subject.organization || subject.commonName || null;
+};
+
+const verifySignatureWithPem = async (pemKey, signature, data, options = {}) => {
+    try {
+        const cert = parsePemCertificate(pemKey);
         const publicKeyInfo = cert.subjectPublicKeyInfo;
         if (!publicKeyInfo || !publicKeyInfo.algorithm || !publicKeyInfo.algorithm.algorithmId) {
             console.error('Parsed publicKeyInfo:', publicKeyInfo);
             throw new Error('Could not extract algorithm information from public key');
         }
 
-        const webCryptoAlg = getWebCryptoAlgorithmFromOid(publicKeyInfo);
-
-        // Convert to SPKI format for Web Crypto
-        const spkiBytes = publicKeyInfo.toSchema().toBER();
-        const spkiKey = await crypto.subtle.importKey(
-            'spki',
-            spkiBytes,
-            webCryptoAlg,
-            false,
-            ['verify']
-        );
-
-        // Convert signature from base64 to ArrayBuffer
-        let signatureBuffer;
-        if (webCryptoAlg.name === 'ECDSA') {
-            let rsLen = 32; // Default P-256
-            if (webCryptoAlg.namedCurve === 'P-384') rsLen = 48;
-            if (webCryptoAlg.namedCurve === 'P-521') rsLen = 66;
-            // For ECDSA, convert DER signature to raw format
-            signatureBuffer = convertDerSignatureToRaw(signature, rsLen);
-        } else {
-            // For RSA, use as-is
-            signatureBuffer = base64ToUint8Array(signature).buffer;
+        const webCryptoAlg = getWebCryptoAlgorithmFromOid(publicKeyInfo, options);
+        ensurePKIjsCryptoEngine();
+        const hash = typeof webCryptoAlg.hash === 'string' ? webCryptoAlg.hash : webCryptoAlg.hash.name;
+        const cryptoEngine = getCrypto(true);
+        const signatureAlgorithm = new AlgorithmIdentifier({
+            algorithmId: cryptoEngine.getOIDByAlgorithm({ ...webCryptoAlg, hash: { name: hash } }, true),
+        });
+        if(webCryptoAlg.name === 'RSA-PSS') {
+            const hashAlgorithm = new AlgorithmIdentifier({
+                algorithmId: cryptoEngine.getOIDByAlgorithm({ name: hash }, true),
+            });
+            signatureAlgorithm.algorithmParams = new RSASSAPSSParams({
+                hashAlgorithm,
+                maskGenAlgorithm: new AlgorithmIdentifier({ algorithmId: MGF1_OID, algorithmParams: hashAlgorithm.toSchema() }),
+                saltLength: webCryptoAlg.saltLength,
+            }).toSchema();
         }
-
-        const verified = await crypto.subtle.verify(webCryptoAlg, spkiKey, signatureBuffer, data);
-        return verified;
+        return await verifySignedData(data, new BitString({ valueHex: base64ToUint8Array$1(signature) }), publicKeyInfo, signatureAlgorithm);
     } catch (error) {
-        console.error('Error converting PEM to SPKI key:', error);
+        console.error('Error verifying signature:', error);
         throw error;
     }
 };
 
-function base64ToUint8Array(base64) {
-    if(typeof Buffer == 'function') {
-        return new Uint8Array(Buffer.from(base64, 'base64'));
-    } else {
-        const raw = atob(base64);
-        const bytes = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) {
-            bytes[i] = raw.charCodeAt(i);
+const verifySignedData = async (data, signature, publicKeyInfo, signatureAlgorithm) => {
+    ensurePKIjsCryptoEngine();
+    const cryptoEngine = getCrypto(true);
+    const algorithm = cryptoEngine.getAlgorithmByOID(signatureAlgorithm.algorithmId, true);
+    if(algorithm.name === 'ECDSA') validateECDSASignature(signature.valueBlock.valueHexView);
+    const pss = signatureAlgorithm.algorithmId === RSA_PSS_OID ? parsePSSParameters(signatureAlgorithm) : null;
+    if(publicKeyInfo.algorithm.algorithmId === RSA_PSS_OID) {
+        if(!pss) throw new Error('RSA-PSS certificates require the RSA-PSS signature algorithm');
+        if(publicKeyInfo.algorithm.algorithmParams) {
+            const restrictions = parsePSSParameters(publicKeyInfo.algorithm);
+            if(pss.hashAlgorithm.algorithmId !== restrictions.hashAlgorithm.algorithmId || pss.saltLength < restrictions.saltLength) {
+                throw new Error('Signature parameters do not satisfy RSA-PSS public key restrictions');
+            }
         }
-        return bytes;
+        // JWK import supports PSS-only keys without changing the original certificate.
+        const rsa = RSAPublicKey.fromBER(publicKeyInfo.subjectPublicKey.valueBlock.valueHexView);
+        const key = await cryptoEngine.importKey('jwk', { kty: 'RSA', ...rsa.toJSON() }, {
+            name: 'RSA-PSS', hash: cryptoEngine.getHashAlgorithm(signatureAlgorithm),
+        }, false, ['verify']);
+        return cryptoEngine.verify({ name: 'RSA-PSS', saltLength: pss.saltLength }, key, signature.valueBlock.valueHexView, data);
+    }
+    return cryptoEngine.verifyWithPublicKey(data, signature, publicKeyInfo, signatureAlgorithm);
+};
+
+function getAttributeValue(attribute) {
+    const valueBlock = attribute?.value?.valueBlock;
+    if(!valueBlock) return null;
+    if(typeof valueBlock.value === 'string') return valueBlock.value;
+    if(valueBlock.valueHexView || valueBlock.valueHex) {
+        const bytes = valueBlock.valueHexView || new Uint8Array(valueBlock.valueHex);
+        try {
+            return new TextDecoder().decode(bytes).replace(/\0/g, '');
+        } catch (error) {
+            return null;
+        }
+    }
+    return null;
+}
+
+function validateECDSASignature(bytes) {
+    const asn1 = fromBER(bytes);
+    if(asn1.offset === -1 || asn1.offset !== bytes.byteLength || !(asn1.result instanceof Sequence)
+        || asn1.result.valueBlock.value.length !== 2 || !asn1.result.valueBlock.value.every(value => value instanceof Integer)) {
+        throw new Error('Invalid DER signature structure');
     }
 }
 
-// Helper to pad or trim a Uint8Array to a specific length
-function padOrTrimUint8Array(buf, length) {
-    if (buf.length === length) return buf;
-    if (buf.length > length) return buf.slice(buf.length - length);
-    // pad with zeros at the start
-    const out = new Uint8Array(length);
-    out.set(buf, length - buf.length);
-    return out;
-}
-
-// Function to convert DER signature to raw format for ECDSA
-function convertDerSignatureToRaw(base64Signature, rsLen) {
-    try {
-        // Decode base64 to binary
-        const derBytes = base64ToUint8Array(base64Signature);
-
-        // Parse DER structure
-        const asn1 = fromBER(derBytes.buffer);
-
-        // DER signature should be SEQUENCE { INTEGER r, INTEGER s }
-        if (asn1.result.valueBlock.value.length !== 2) {
-            throw new Error('Invalid DER signature structure');
-        }
-
-        const r = asn1.result.valueBlock.value[0];
-        const s = asn1.result.valueBlock.value[1];
-
-        // Extract r and s values as byte arrays
-        const rBytes = new Uint8Array(r.valueBlock.valueHex);
-        const sBytes = new Uint8Array(s.valueBlock.valueHex);
-
-        // For P-256, each value should be 32 bytes
-        const rPadded = padOrTrimUint8Array(rBytes, rsLen);
-        const sPadded = padOrTrimUint8Array(sBytes, rsLen);
-
-        // Concatenate r and s
-        const rawSignature = new Uint8Array(rsLen * 2);
-        rawSignature.set(rPadded, 0);
-        rawSignature.set(sPadded, rsLen);
-
-        return rawSignature.buffer;
-    } catch (error) {
-        console.error('Error converting DER signature to raw:', error);
-        throw error;
+function parsePSSParameters(algorithm) {
+    if(!algorithm.algorithmParams) throw new Error('RSA-PSS signature parameters are required');
+    const parameters = new RSASSAPSSParams({ schema: algorithm.algorithmParams });
+    const mgf = parameters.maskGenAlgorithm;
+    if(mgf.algorithmId !== MGF1_OID || !mgf.algorithmParams || parameters.trailerField !== 1
+        || !Number.isInteger(parameters.saltLength) || parameters.saltLength < 0) {
+        throw new Error('Unsupported RSA-PSS parameters');
     }
+    const mgfHash = new AlgorithmIdentifier({ schema: mgf.algorithmParams });
+    if(mgfHash.algorithmId !== parameters.hashAlgorithm.algorithmId) {
+        throw new Error('RSA-PSS MGF1 hash must match the signature hash');
+    }
+    return parameters;
 }
 
-function getWebCryptoAlgorithmFromOid(publicKeyInfo) {
+function getWebCryptoAlgorithmFromOid(publicKeyInfo, options) {
     const algorithmOid = publicKeyInfo.algorithm.algorithmId;
     const algorithmParams = publicKeyInfo.algorithm.algorithmParams;
 
@@ -25144,6 +24985,9 @@ function getWebCryptoAlgorithmFromOid(publicKeyInfo) {
 
     switch (oidString) {
         case '1.2.840.10045.2.1': // ecPublicKey
+            if(options.name !== undefined && options.name !== 'ECDSA') {
+                throw new Error('EC certificates require the ECDSA signature algorithm');
+            }
             // Parse the curve parameters to determine the specific curve
             let curveOid;
             if (algorithmParams && typeof algorithmParams === 'object' && algorithmParams.valueBlock && typeof algorithmParams.valueBlock.toString === 'function') {
@@ -25155,392 +24999,110 @@ function getWebCryptoAlgorithmFromOid(publicKeyInfo) {
             }
             switch (curveOid) {
                 case '1.2.840.10045.3.1.7': // P-256
-                    return { name: 'ECDSA', namedCurve: 'P-256', hash: { name: 'SHA-256' } };
+                    return { name: 'ECDSA', namedCurve: 'P-256', hash: options.hash ?? { name: 'SHA-256' } };
                 case '1.3.132.0.34': // P-384
-                    return { name: 'ECDSA', namedCurve: 'P-384', hash: { name: 'SHA-384' } };
+                    return { name: 'ECDSA', namedCurve: 'P-384', hash: options.hash ?? { name: 'SHA-384' } };
                 case '1.3.132.0.35': // P-521
-                    return { name: 'ECDSA', namedCurve: 'P-521', hash: { name: 'SHA-512' } };
+                    return { name: 'ECDSA', namedCurve: 'P-521', hash: options.hash ?? { name: 'SHA-512' } };
                 case undefined:
                     // Default to P-256 if no parameters provided
-                    return { name: 'ECDSA', namedCurve: 'P-256', hash: { name: 'SHA-256' } };
+                    return { name: 'ECDSA', namedCurve: 'P-256', hash: options.hash ?? { name: 'SHA-256' } };
                 default:
                     throw new Error(`Unsupported EC curve: ${curveOid}`);
             }
         case '1.2.840.113549.1.1.1': // rsaEncryption
-            return { name: 'RSASSA-PKCS1-v1_5' };
         case '1.2.840.113549.1.1.10': // rsassaPss
-            return { name: 'RSA-PSS' };
+            if(!['RSASSA-PKCS1-v1_5', 'RSA-PSS'].includes(options.name) || !options.hash) {
+                throw new Error('RSA signatures require explicit name and hash options');
+            }
+            if(oidString === '1.2.840.113549.1.1.10' && options.name !== 'RSA-PSS') {
+                throw new Error('RSA-PSS certificates require the RSA-PSS signature algorithm');
+            }
+            if(options.name === 'RSA-PSS') {
+                if(!Number.isInteger(options.saltLength) || options.saltLength < 0) {
+                    throw new Error('RSA-PSS signatures require a non-negative integer saltLength');
+                }
+                return { name: options.name, hash: options.hash, saltLength: options.saltLength };
+            }
+            return { name: options.name, hash: options.hash };
         default:
             throw new Error(`Unsupported algorithm OID: ${oidString}`);
     }
 }
 
-class TrustedIssuerRegistry {
-    constructor(options = {}) {
-        this._cacheEnabled = options.cacheEnabled ?? true;
-        this._cacheTTL = options.cacheTTL ?? 1000 * 60 * 60 * 24; // 24 hours
-        this._urlBase = REGISTRY_URL_BASE;
-        this._cache = {};
-        this._deprecationCache = null;
-    }
-
-    async getEndOfLifeDate() {
-        if (this._cacheEnabled && this._deprecationCache && this._deprecationCache.expiresAt > Date.now()) return this._copyDate(this._deprecationCache.endOfLifeDate);
-
-        const response = await fetch(`${this._urlBase}/deprecation_notice.json`);
-        let endOfLifeDate = null;
-        if (response.ok) {
-            const deprecationNotice = await response.json();
-            if(deprecationNotice.version) {
-                const [major, minor] = deprecationNotice.version.split('.').map(Number);
-                const [currentMajor, currentMinor] = MINOR_VERSION.split('.').map(Number);
-                if(!(major < currentMajor || (major === currentMajor && minor < currentMinor))) endOfLifeDate = new Date(deprecationNotice.end_of_life * 1000);
-            }
-        } else if (response.status === 404) {
-            endOfLifeDate = null;
-        } else {
-            throw new Error(`Failed to fetch deprecation notice: ${response.status} ${response.statusText || ''}`.trim());
-        }
-
-        if (this._cacheEnabled) {
-            this._deprecationCache = {
-                endOfLifeDate,
-                expiresAt: Date.now() + this._cacheTTL
-            };
-        }
-        return this._copyDate(endOfLifeDate);
-    }
-
-    async getIssuerFromX509AKI(x509aki) {
-        if (this._cacheEnabled && x509aki in this._cache && this._cache[x509aki].expiresAt > Date.now()) return this._deepCopy(this._cache[x509aki].issuer);
-
-        const response = await fetch(`${this._urlBase}/issuers/x509_aki/${x509aki}.json`);
-        if (response.ok) {
-            const issuer = await response.json();
-            const verified = await this._verifyIssuer(issuer);
-            if (!verified) return null;
-            if (this._cacheEnabled) {
-                this._cache[x509aki] = {
-                    issuer,
-                    expiresAt: Date.now() + this._cacheTTL
-                };
-            }
-            return this._deepCopy(issuer);
-        } else if (response.status === 404) {
-            if (this._cacheEnabled) {
-                this._cache[x509aki] = {
-                    issuer: null,
-                    expiresAt: Date.now() + this._cacheTTL
-                };
-            }
-        } else {
-            throw new Error(`Failed to fetch issuer ${x509aki}: ${response.status} ${response.statusText || ''}`.trim());
-        }
-
-        return null;
-    }
-
-    async _verifyIssuer(issuer) {
-        const issuerCopy = { ...issuer };
-        const signature = issuerCopy.signature;
-        delete issuerCopy.signature;
-        const issuerString = stringify(issuerCopy);
-
-        let verified = false;
-        try {
-            const issuerData = new TextEncoder().encode(issuerString).buffer;
-            verified = await verifySignatureWithPem(PUBLIC_SIGNING_CERT, signature, issuerData);
-        } catch (e) {
-            console.error('Issuer signature verification failed', e);
-        }
-        return verified;
-    }
-
-    _deepCopy(obj) {
-        return JSON.parse(JSON.stringify(obj));
-    }
-
-    _copyDate(date) {
-        return date ? new Date(date.getTime()) : null;
-    }
-
-    static minorVersion = MINOR_VERSION;
-}
-
-//For CommonJS compatibility... boo CommonJS people, get with the times
-TrustedIssuerRegistry.verifySignatureWithPem = verifySignatureWithPem;
-
-const AUTHORITY_KEY_IDENTIFIER_OID = '2.5.29.35';
-const SUBJECT_KEY_IDENTIFIER_OID = '2.5.29.14';
-const SUBJECT_ATTRIBUTE_NAMES = {
-    '2.5.4.3': 'commonName',
-    '2.5.4.6': 'country',
-    '2.5.4.7': 'locality',
-    '2.5.4.8': 'state',
-    '2.5.4.10': 'organization',
-    '2.5.4.11': 'organizationalUnit',
+const getIssuerFromX509AKI = async (x509aki, options) => {
+    const userTrustedIssuer = options.userTrustedIssuers[x509aki];
+    const registryIssuer = await getRegistryIssuerFromX509AKI(x509aki, options);
+    return userTrustedIssuer
+        ? mergeIssuers(userTrustedIssuer, registryIssuer)
+        : registryIssuer;
 };
 
-/**
- * Parse a X.509 chain into a PKIjs Certificate object
- * @param {Array|Uint8Array} x5chain - The X.509 chain
- * @returns {Certificate} - The parsed Certificate object
- */
-const parseX5Chain = (x5chain) => {
-    if(x5chain instanceof Array) x5chain = x5chain[0];
-    if(!x5chain) return null;
-    const arrayBuffer = x5chain.buffer.slice(x5chain.byteOffset, x5chain.byteOffset + x5chain.byteLength);
-    const asn1 = fromBER(arrayBuffer);
-    const cert = new Certificate({ schema: asn1.result });
-    return cert;
-};
-
-/**
- * Get the AuthorityKeyIdentifier from a X.509 certificate
- * @param {Certificate} x509Cert - The X.509 certificate
- * @returns {string} - The AuthorityKeyIdentifier in base64url format
- */
-const getAuthorityKeyIdentifier = (x509Cert) => {
-    if(!x509Cert) return null;
-    const authorityKeyId = x509Cert.extensions?.find(ext => ext.extnID === AUTHORITY_KEY_IDENTIFIER_OID);
-    if (authorityKeyId) {
-        try {
-            const akidValue = fromBER(authorityKeyId.extnValue.valueBlock.valueHex);
-            if (akidValue.result.valueBlock.value) {
-                return bufferToBase64Url(akidValue.result.valueBlock.value[0].valueBlock.valueHex);
-            }
-        } catch (e) {
-            console.error('Could not parse AuthorityKeyIdentifier value', e);
-        }
+const getRegistryIssuerFromX509AKI = async (x509aki, options) => {
+    const { cachedFetcher } = options;
+    const url = `${REGISTRY_URL_BASE}/issuers/x509_aki/${x509aki}.json`;
+    const response = await cachedFetcher.fetch(url, 'issuer');
+    if(!response.ok && response.status !== 404) {
+        throw new Error(`Failed to fetch issuer ${x509aki}: ${response.status} ${response.statusText || ''}`.trim());
     }
-    return null;
+    return deepCopy(response.issuer);
 };
 
-/**
- * Get the SubjectKeyIdentifier from a X.509 certificate
- * @param {Certificate} x509Cert - The X.509 certificate
- * @returns {string} - The SubjectKeyIdentifier in base64url format
- */
-const getSubjectKeyIdentifier = (x509Cert) => {
-    if(!x509Cert) return null;
-    const subjectKeyId = x509Cert.extensions?.find(ext => ext.extnID === SUBJECT_KEY_IDENTIFIER_OID);
-    if (subjectKeyId) {
-        try {
-            const skidValue = fromBER(subjectKeyId.extnValue.valueBlock.valueHex);
-            const valueHex = skidValue.result.valueBlock.valueHexView || skidValue.result.valueBlock.valueHex;
-            if (valueHex) return bufferToBase64Url(valueHex);
-        } catch (e) {
-            console.error('Could not parse SubjectKeyIdentifier value', e);
-        }
-    }
-    return null;
-};
+const mergeIssuers = (userTrustedIssuer, registryIssuer) => {
+    if(!userTrustedIssuer && !registryIssuer) return null;
 
-/**
- * Get common subject attributes from a X.509 certificate
- * @param {Certificate} x509Cert - The X.509 certificate
- * @returns {Object} - Common subject fields
- */
-const getCertificateSubject = (x509Cert) => {
-    const subject = {};
-    const attributes = x509Cert?.subject?.typesAndValues || [];
-    for (const attribute of attributes) {
-        const name = SUBJECT_ATTRIBUTE_NAMES[attribute.type];
-        if(!name) continue;
-        const value = getAttributeValue(attribute);
-        if(value) subject[name] = value;
-    }
-    return subject;
-};
-
-/**
- * Get a best-effort display name from a X.509 certificate subject
- * @param {Certificate} x509Cert - The X.509 certificate
- * @returns {string|null} - The display name
- */
-const getCertificateDisplayName = (x509Cert) => {
-    const subject = getCertificateSubject(x509Cert);
-    return subject.organization || subject.commonName || null;
-};
-
-const getDocumentSignerCertificateValidityReason = (x509Cert, now = new Date()) => {
-    if(checkNotYetValid(x509Cert, now)) return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID;
-    return checkExpired(x509Cert, now)
-        ? UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_EXPIRED
-        : null;
-};
-
-const getIssuerCertificateValidityReason = (issuerCertificate, now = new Date()) => {
-    try {
-        const x509Cert = parsePemCertificate(issuerCertificate?.data);
-        if(checkNotYetValid(x509Cert, now)) return UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID;
-        return checkExpired(x509Cert, now)
-            ? UntrustedReason.ISSUER_CERTIFICATE_EXPIRED
-            : null;
-    } catch(error) {
-        return null;
-    }
-};
-
-const checkNotYetValid = (x509Cert, now = new Date()) => {
-    const notBefore = x509Cert?.notBefore?.value;
-    return notBefore instanceof Date && notBefore > now;
-};
-
-const checkExpired = (x509Cert, now = new Date()) => {
-    const notAfter = x509Cert?.notAfter?.value;
-    return notAfter instanceof Date && notAfter < now;
-};
-
-const getAttributeValue = (attribute) => {
-    const valueBlock = attribute?.value?.valueBlock;
-    if(!valueBlock) return null;
-    if(typeof valueBlock.value === 'string') return valueBlock.value;
-    if(valueBlock.valueHexView || valueBlock.valueHex) {
-        const bytes = valueBlock.valueHexView || new Uint8Array(valueBlock.valueHex);
-        try {
-            return new TextDecoder().decode(bytes).replace(/\0/g, '');
-        } catch (error) {
-            return null;
-        }
-    }
-    return null;
-};
-
-/**
- * Convert a X.509 certificate to a Web Crypto public key
- * @param {Certificate} x509Cert - The X.509 certificate
- * @param {string} coseAlg - The COSE algorithm
- * @returns {Promise<CryptoKey>} - The Web Crypto public key
- */
-const x509ToWebCryptoKey = async (x509Cert, coseAlg) => {
-    try {
-        const publicKeyInfo = x509Cert.subjectPublicKeyInfo;
-        const spkiBytes = publicKeyInfo.toSchema().toBER();
-        const webCryptoAlg = CoseAlgToWebCrypto[coseAlg];
-        const certKey = await crypto.subtle.importKey(
-            'spki',
-            spkiBytes,
-            webCryptoAlg,
-            false,
-            ['verify']
-        );
-
-        return certKey;
-    } catch (error) {
-        console.error('Error converting X.509 to SPKI:', error);
-        throw error;
-    }
-};
-
-/**
- * Parse a PEM certificate string into a PKIjs Certificate object
- * @param {string} pemString - The PEM certificate string
- * @returns {Certificate} - The parsed Certificate object
- */
-const parsePemCertificate = (pemString) => {
-    const pemContent = pemString
-        .replace(/-----BEGIN CERTIFICATE-----/, '')
-        .replace(/-----END CERTIFICATE-----/, '')
-        .replace(/\s/g, '');
-
-    const bytes = base64ToUint8Array$1(pemContent);
-
-    const asn1 = fromBER(bytes.buffer);
-    const cert = new Certificate({ schema: asn1.result });
-    return cert;
-};
-
-/**
- * Find issuer certificates that can validate a certificate signature
- * @param {Certificate} certificate - The certificate to validate
- * @param {Array} issuerCertificates - The list of issuer certificates in PEM format
- * @returns {Promise<Array>} - The issuer certificate objects that validate the certificate
- */
-const getMatchingIssuerCertificates = async (certificate, issuerCertificates) => {
-    if (!issuerCertificates || !Array.isArray(issuerCertificates)) {
-        console.error('Unexpected input, no issuer certificates provided or not an array');
-        return [];
-    }
-
-    let signature, tbsBytes;
-    try {
-        signature = certificate.signatureValue.valueBlock.valueHex;
-        const tbsCertificate = certificate.tbsView; //TBS = To Be Signed (data to be signed)
-        tbsBytes = new Uint8Array(tbsCertificate);
-    } catch (error) {
-        console.error('Could not parse signature value from certificate', error);
-        return [];
-    }
-
-    const matchingIssuerCertificates = [];
-    for (let i = 0; i < issuerCertificates.length; i++) {
-        const issuerCert = issuerCertificates[i];
-        try {
-            if (typeof issuerCert.data === 'string') {
-                const isValid = await verifySignatureWithPem(issuerCert.data, signature, tbsBytes);
-                if (isValid) matchingIssuerCertificates.push(issuerCert);
-            }
-        } catch (error) {
-            continue;
-        }
-    }
-
-    return matchingIssuerCertificates;
-};
-
-const normalizeIssuerCertificates = (trustedIssuerCertificates = []) => {
-    const localIssuers = {};
-    if(!Array.isArray(trustedIssuerCertificates)) return localIssuers;
-    for(const trustedIssuerCertificate of trustedIssuerCertificates) {
-        const certInfo = normalizeIssuerCertificate(trustedIssuerCertificate);
-        const subjectKeyIdentifier = certInfo.subjectKeyIdentifier;
-        if(!localIssuers[subjectKeyIdentifier]) {
-            localIssuers[subjectKeyIdentifier] = certInfo.issuer;
-        } else {
-            localIssuers[subjectKeyIdentifier].certificates.push(...certInfo.issuer.certificates);
-        }
-    }
-    return localIssuers;
-};
-
-const getIssuerCandidatesForCertificate$1 = async (certificate, localIssuers = {}) => {
-    if(!certificate || !hasLocalIssuers(localIssuers)) return [];
-
-    const aki = getAuthorityKeyIdentifier(certificate);
-    if(!aki) return [];
-
-    const issuer = localIssuers[aki];
-    if(!issuer) return [];
-
-    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
-    return matchingCertificates.map(matchedCertificate =>
-        createIssuerCandidate$1(issuer, matchedCertificate));
-};
-
-const createIssuerCandidate$1 = (issuer, certificate) => {
-    const { certificates: _certificates, ...issuerFields } = issuer;
-
-    return {
-        ...issuerFields,
-        display: { ...(issuer.display || {}) },
-        entity_metadata: { ...(issuer.entity_metadata || {}) },
-        certificate: {
-            ...certificate,
-            trust_lists: [...(certificate.trust_lists || [])],
-        },
+    const issuer = {
+        ...deepCopy(registryIssuer || {}),
+        ...deepCopy(userTrustedIssuer || {}),
+        entity_metadata: { ...registryIssuer?.entity_metadata, ...userTrustedIssuer?.entity_metadata },
+        display: { ...registryIssuer?.display, ...userTrustedIssuer?.display },
+        trust_scopes: [...new Set([
+            ...userTrustedIssuer?.trust_scopes || [],
+            ...registryIssuer?.trust_scopes || [],
+        ])],
+        certificates: [],
     };
+    // Merged metadata and trust results are not covered by the registry signature.
+    delete issuer.signature;
+
+    const certificatesByPem = new Map();
+    for(const certificate of [...userTrustedIssuer?.certificates || [], ...registryIssuer?.certificates || []]) {
+        const existingCertificate = certificatesByPem.get(certificate.data);
+        if(existingCertificate) {
+            existingCertificate.trust_lists = [...new Set([...existingCertificate.trust_lists, ...certificate.trust_lists])];
+        } else {
+            const copy = deepCopy(certificate);
+            copy.trust_lists = [...new Set(copy.trust_lists)];
+            certificatesByPem.set(copy.data, copy);
+            issuer.certificates.push(copy);
+        }
+    }
+    return issuer;
 };
 
-const hasLocalIssuers = (localIssuers) => {
-    return localIssuers && typeof localIssuers === 'object'
-        && Object.keys(localIssuers).length > 0;
+const buildUserTrustedIssuers = (trustedIssuerCertificates = []) => {
+    if(!Array.isArray(trustedIssuerCertificates)) {
+        throw new Error('trustedIssuerCertificates must be an array');
+    }
+
+    const userTrustedIssuers = Object.create(null);
+    for(const trustedIssuerCertificate of trustedIssuerCertificates) {
+        const { subjectKeyIdentifier, issuer } = normalizeTrustedIssuerCertificate(trustedIssuerCertificate);
+        const existingIssuer = userTrustedIssuers[subjectKeyIdentifier];
+        if(existingIssuer) {
+            userTrustedIssuers[subjectKeyIdentifier] = mergeIssuers(existingIssuer, issuer);
+        } else {
+            userTrustedIssuers[subjectKeyIdentifier] = issuer;
+        }
+    }
+
+    return userTrustedIssuers;
 };
 
-const normalizeIssuerCertificate = (issuerCertificate) => {
-    const options = typeof issuerCertificate === 'string'
-        ? { data: issuerCertificate }
-        : { ...issuerCertificate };
+const normalizeTrustedIssuerCertificate = (trustedIssuerCertificate) => {
+    const options = typeof trustedIssuerCertificate === 'string'
+        ? { data: trustedIssuerCertificate }
+        : { ...trustedIssuerCertificate };
 
     if(typeof options.data !== 'string') {
         throw new Error('trustedIssuerCertificates entries must be PEM strings or objects with a data PEM string');
@@ -25556,27 +25118,1091 @@ const normalizeIssuerCertificate = (issuerCertificate) => {
     }
 
     const issuerId = `x509_aki:${subjectKeyIdentifier}`;
-    const display = { ...(options.display || {}) };
-    if(!display.name)
-        display.name = getCertificateDisplayName(parsedCertificate) || issuerId;
+    const subject = getCertificateSubject(parsedCertificate);
+    const display = mergeDefined(
+        { name: getCertificateDisplayName(parsedCertificate) || issuerId },
+        options.display || {}
+    );
 
-    const certificate = {
-        data: options.data,
-        format: 'pem',
-        trust_lists: [USER_PROVIDED_TRUST_LIST],
-    };
+    const entityMetadata = mergeDefined(
+        {
+            country: subject.country || '',
+            region: subject.state ? subject.state.replace('US-', '') : undefined,
+        },
+        options.entity_metadata || {}
+    );
 
     return {
         subjectKeyIdentifier,
         issuer: {
             issuer_id: issuerId,
             entity_type: options.entity_type || 'other',
-            entity_metadata: { ...(options.entity_metadata || {}) },
+            entity_metadata: entityMetadata,
             display,
-            certificates: [certificate],
+            trust_scopes: Array.isArray(options.trust_scopes) ? [...options.trust_scopes] : [],
+            certificates: [
+                {
+                    data: certificateToPem(parsedCertificate),
+                    format: 'pem',
+                    trust_lists: ['user_provided'],
+                },
+            ],
         },
     };
 };
+
+const mergeDefined = (...objects) => {
+    const merged = {};
+    for(const object of objects) {
+        for(const [key, value] of Object.entries(object)) {
+            if(value !== undefined) merged[key] = value;
+        }
+    }
+    return merged;
+};
+
+const verifyIssuer = async (issuer) => {
+    const { signature, ...issuerData } = issuer;
+    try {
+        const data = new TextEncoder().encode(stringify(issuerData)).buffer;
+        return await verifySignatureWithPem(PUBLIC_SIGNING_CERT, signature, data);
+    } catch(error) {
+        console.error('Issuer signature verification failed', error);
+        return false;
+    }
+};
+
+const BASIC_CONSTRAINTS_OID = '2.5.29.19';
+const KEY_USAGE_OID = '2.5.29.15';
+const CRL_REASON_OID = '2.5.29.21';
+const DELTA_CRL_INDICATOR_OID = '2.5.29.27';
+const ISSUING_DISTRIBUTION_POINT_OID = '2.5.29.28';
+const CRL_DISTRIBUTION_POINTS_OID = '2.5.29.31';
+const CRL_PEM_BEGIN = '-----BEGIN X509 CRL-----';
+const CRL_PEM_END = '-----END X509 CRL-----';
+const ALL_REASONS_MASK = 0x1FE;
+const CRL_SIGN_KEY_USAGE_MASK = 0x02;
+const REMOVE_FROM_CRL_REASON = 8;
+
+const getCRLDistributionPoints = (certificate) => {
+    const extension = certificate?.extensions?.find(ext => ext.extnID === CRL_DISTRIBUTION_POINTS_OID);
+    if(!extension) return [];
+
+    const crlDistributionPoints = parseExtensionValue(
+        extension,
+        CRLDistributionPoints,
+        'Unable to parse CRL Distribution Points'
+    );
+
+    return crlDistributionPoints.distributionPoints
+        .map(distributionPoint => ({
+            distributionPoint: distributionPoint,
+            urls: getDistributionPointUrls(distributionPoint),
+        }))
+        .filter(distributionPoint => distributionPoint.urls.length > 0);
+};
+
+const checkCertificateRevocation = async (certificate, issuerCertificate, { cachedFetcher }) => {
+    let distributionPoints;
+    try {
+        distributionPoints = getCRLDistributionPoints(certificate);
+    } catch(error) {
+        return {
+            checked: false,
+            revoked: false,
+            error: error.message,
+        };
+    }
+
+    const urls = getAllDistributionPointUrls(distributionPoints);
+    const result = {
+        checked: false,
+        revoked: false,
+    };
+
+    if(urls.length === 0) return result;
+
+    const errors = [];
+    const supportedDistributionPoints = [];
+    for(const distributionPoint of distributionPoints) {
+        if(hasDelegatedCRLIssuer(distributionPoint)) {
+            errors.push('Delegated CRL issuers are not supported');
+        } else {
+            supportedDistributionPoints.push(distributionPoint);
+        }
+    }
+
+    const supportedUrls = getAllDistributionPointUrls(supportedDistributionPoints);
+    if(supportedUrls.length === 0) {
+        if(errors.length > 0) result.error = errors.join('; ');
+        return result;
+    }
+
+    let crlIssuerCertificate;
+    try {
+        crlIssuerCertificate = getIssuerCertificate(issuerCertificate);
+        validateCRLIssuerCertificate(crlIssuerCertificate);
+    } catch(error) {
+        result.error = error.message;
+        return result;
+    }
+
+    const evaluationState = {
+        coveredReasonsMask: 0,
+        errors: errors,
+    };
+    const pendingResultsByUrl = getPendingCRLResultsByUrl(supportedUrls, cachedFetcher);
+
+    while(pendingResultsByUrl.size > 0) {
+        const crlResult = await getNextCRLResult(pendingResultsByUrl);
+        const revocationResult = await evaluateCRLResult(crlResult, supportedDistributionPoints, certificate, crlIssuerCertificate, evaluationState);
+        if(revocationResult) {
+            return revocationResult;
+        }
+    }
+
+    if(evaluationState.coveredReasonsMask > 0 && !isCompleteCRLCoverage(evaluationState.coveredReasonsMask)) {
+        evaluationState.errors.push('CRL coverage is incomplete');
+    }
+
+    if(evaluationState.errors.length > 0) result.error = evaluationState.errors.join('; ');
+    return result;
+};
+
+const getPendingCRLResultsByUrl = (urls, cachedFetcher) => {
+    const pendingResultsByUrl = new Map();
+
+    for(const url of urls) {
+        pendingResultsByUrl.set(url, fetchCRL(url, cachedFetcher)
+            .then(crl => ({
+                url: url,
+                crl: crl,
+            }))
+            .catch(error => ({ url: url, error: error })));
+    }
+
+    return pendingResultsByUrl;
+};
+
+const getNextCRLResult = async (pendingResultsByUrl) => {
+    const result = await Promise.race(pendingResultsByUrl.values());
+    pendingResultsByUrl.delete(result.url);
+    return result;
+};
+
+const evaluateCRLResult = async (crlResult, distributionPoints, certificate, crlIssuerCertificate, state) => {
+    const {
+        url,
+        crl,
+        error,
+    } = crlResult;
+
+    if(error) {
+        state.errors.push(error.message);
+        return null;
+    }
+
+    try {
+        const signatureValid = await crl.verify({
+            issuerCertificate: crlIssuerCertificate,
+        }, { verifyWithPublicKey: verifySignedData });
+        if(!signatureValid) {
+            state.errors.push(`Invalid CRL signature for ${url}`);
+            return null;
+        }
+
+        const matchingDistributionPoints = distributionPoints.filter(distributionPoint => distributionPoint.urls.includes(url));
+        for(const distributionPoint of matchingDistributionPoints) {
+            const coverage = getCRLCoverage(certificate, crl, distributionPoint.distributionPoint);
+            if(!coverage.coversCertificate) {
+                state.errors.push(`${coverage.error} for ${url}`);
+                continue;
+            }
+
+            if(isCRLNotYetValid(crl)) {
+                state.errors.push(`CRL is not yet valid for ${url}`);
+                continue;
+            }
+
+            const stale = isCRLStale(crl);
+
+            const revokedCertificate = crl.revokedCertificates?.find(entry => entry.userCertificate.isEqual(certificate.serialNumber));
+            if(revokedCertificate) {
+                if(getCRLEntryReason(revokedCertificate) !== REMOVE_FROM_CRL_REASON) {
+                    return {
+                        checked: true,
+                        revoked: true,
+                    };
+                }
+                if(!isDeltaCRL(crl)) {
+                    state.errors.push(`removeFromCRL is only valid in a delta CRL for ${url}`);
+                    continue;
+                }
+            }
+
+            if(isDeltaCRL(crl)) {
+                state.errors.push(`Delta CRL cannot establish non-revoked status for ${url}`);
+                continue;
+            }
+
+            if(!stale) {
+                state.coveredReasonsMask |= coverage.reasonsMask;
+                if(isCompleteCRLCoverage(state.coveredReasonsMask)) {
+                    return {
+                        checked: true,
+                        revoked: false,
+                    };
+                }
+                continue;
+            }
+
+            state.errors.push(`CRL is stale for ${url}`);
+        }
+    } catch(error) {
+        state.errors.push(error.message);
+    }
+
+    return null;
+};
+
+const getCRLEntryReason = (entry) => {
+    const extension = entry.crlEntryExtensions?.extensions.find(ext => ext.extnID === CRL_REASON_OID);
+    if(!extension) return null;
+
+    const reason = parseExtensionValue(extension, Enumerated, 'Unable to parse CRL reason code');
+    return reason.valueBlock.valueDec;
+};
+
+const getDistributionPointUrls = (distributionPoint) => {
+    if(!Array.isArray(distributionPoint.distributionPoint)) return [];
+
+    const urls = [];
+    for(const generalName of distributionPoint.distributionPoint) {
+        if(generalName.type === 6 && typeof generalName.value === 'string') {
+            urls.push(generalName.value);
+        }
+    }
+    return [...new Set(urls)];
+};
+
+const hasDelegatedCRLIssuer = (distributionPoint) => {
+    return distributionPoint.distributionPoint.cRLIssuer?.length > 0;
+};
+
+const getAllDistributionPointUrls = (distributionPoints) => {
+    const urls = [];
+    for(const distributionPoint of distributionPoints) {
+        urls.push(...distributionPoint.urls);
+    }
+    return [...new Set(urls)];
+};
+
+const getIssuerCertificate = (issuerCertificate) => {
+    if(issuerCertificate instanceof Certificate) return issuerCertificate;
+    if(issuerCertificate?.parsedCertificate instanceof Certificate) return issuerCertificate.parsedCertificate;
+    if(typeof issuerCertificate === 'string') return parsePemCertificate(issuerCertificate);
+    if(typeof issuerCertificate?.data === 'string') return parsePemCertificate(issuerCertificate.data);
+    throw new Error('Issuer certificate is required to verify CRL signature');
+};
+
+const validateCRLIssuerCertificate = (issuerCertificate) => {
+    if(issuerCertificate.version !== 2) return;
+
+    const keyUsage = issuerCertificate.extensions?.find(ext => ext.extnID === KEY_USAGE_OID);
+    if(!keyUsage) throw new Error('CRL issuer certificate key usage does not allow CRL signing');
+
+    const keyUsageValue = parseExtensionValue(keyUsage, BitString, 'Unable to parse CRL issuer certificate key usage');
+    const keyUsageBytes = keyUsageValue.valueBlock.valueHexView;
+    if(!(keyUsageBytes[0] & CRL_SIGN_KEY_USAGE_MASK)) {
+        throw new Error('CRL issuer certificate key usage does not allow CRL signing');
+    }
+};
+
+const getCRLCoverage = (certificate, crl, distributionPoint) => {
+    if(!crl.issuer.isEqual(certificate.issuer)) {
+        return {
+            coversCertificate: false,
+            error: 'CRL issuer does not match certificate issuer',
+        };
+    }
+
+    const issuingDistributionPoint = getIssuingDistributionPoint(crl);
+    const issuingDistributionPointCoverage = getIssuingDistributionPointCoverage(
+        certificate,
+        issuingDistributionPoint,
+        distributionPoint
+    );
+    if(!issuingDistributionPointCoverage.coversCertificate) return issuingDistributionPointCoverage;
+
+    const distributionPointReasons = getReasonMask(distributionPoint.reasons);
+    const crlReasons = issuingDistributionPoint?.onlySomeReasons === undefined
+        ? ALL_REASONS_MASK
+        : getReasonMaskFromBytes(new Uint8Array([issuingDistributionPoint.onlySomeReasons]));
+    const reasonsMask = distributionPointReasons & crlReasons;
+
+    if(reasonsMask === 0) {
+        return {
+            coversCertificate: false,
+            error: 'CRL reason scope does not cover certificate distribution point',
+        };
+    }
+
+    return {
+        coversCertificate: true,
+        reasonsMask: reasonsMask,
+    };
+};
+
+const getIssuingDistributionPointCoverage = (certificate, issuingDistributionPoint, distributionPoint) => {
+    if(!issuingDistributionPoint) {
+        return {
+            coversCertificate: true,
+        };
+    }
+
+    if(issuingDistributionPoint.indirectCRL) {
+        return {
+            coversCertificate: false,
+            error: 'Indirect CRLs are not supported',
+        };
+    }
+
+    if(issuingDistributionPoint.onlyContainsAttributeCerts) {
+        return {
+            coversCertificate: false,
+            error: 'CRL only covers attribute certificates',
+        };
+    }
+
+    const certificateIsCA = isCertificateCA(certificate);
+    if(issuingDistributionPoint.onlyContainsCACerts && !certificateIsCA) {
+        return {
+            coversCertificate: false,
+            error: 'CRL only covers CA certificates',
+        };
+    }
+
+    if(issuingDistributionPoint.onlyContainsUserCerts && certificateIsCA) {
+        return {
+            coversCertificate: false,
+            error: 'CRL only covers user certificates',
+        };
+    }
+
+    if(issuingDistributionPoint.distributionPoint) {
+        const crlDistributionPointNames = getDistributionPointNameKeys(issuingDistributionPoint.distributionPoint);
+        const certificateDistributionPointNames = getDistributionPointNameKeys(distributionPoint.distributionPoint);
+        if(!hasSharedName(crlDistributionPointNames, certificateDistributionPointNames)) {
+            return {
+                coversCertificate: false,
+                error: 'CRL distribution point scope does not match certificate distribution point',
+            };
+        }
+    }
+
+    return {
+        coversCertificate: true,
+    };
+};
+
+const getIssuingDistributionPoint = (crl) => {
+    const extension = crl.crlExtensions?.extensions?.find(ext => ext.extnID === ISSUING_DISTRIBUTION_POINT_OID);
+    if(!extension) return null;
+    return parseExtensionValue(
+        extension,
+        IssuingDistributionPoint,
+        'Unable to parse Issuing Distribution Point'
+    );
+};
+
+const getReasonMask = (reasons) => {
+    if(!reasons) return ALL_REASONS_MASK;
+    const bytes = new Uint8Array(reasons.valueBlock.valueHexView || reasons.valueBlock.valueHex || []);
+    return getReasonMaskFromBytes(bytes);
+};
+
+const getReasonMaskFromBytes = (bytes) => {
+    let mask = 0;
+    for(let byteIndex = 0; byteIndex < bytes.length; byteIndex++) {
+        for(let bitIndex = 0; bitIndex < 8; bitIndex++) {
+            if(bytes[byteIndex] & (0x80 >> bitIndex)) {
+                mask |= 1 << ((byteIndex * 8) + bitIndex);
+            }
+        }
+    }
+    return mask & ALL_REASONS_MASK;
+};
+
+const isCompleteCRLCoverage = (reasonsMask) => {
+    return (reasonsMask & ALL_REASONS_MASK) === ALL_REASONS_MASK;
+};
+
+const isCertificateCA = (certificate) => {
+    const extension = certificate?.extensions?.find(ext => ext.extnID === BASIC_CONSTRAINTS_OID);
+    if(!extension) return false;
+
+    try {
+        const basicConstraints = parseExtensionValue(
+            extension,
+            BasicConstraints,
+            'Unable to parse Basic Constraints'
+        );
+        return !!basicConstraints.cA;
+    } catch(error) {
+        return false;
+    }
+};
+
+const getDistributionPointNameKeys = (distributionPointName) => {
+    if(!distributionPointName) return [];
+    if(Array.isArray(distributionPointName)) {
+        return distributionPointName
+            .map(generalName => getGeneralNameKey(generalName));
+    }
+    if(typeof distributionPointName.toSchema === 'function') {
+        return [`rdn:${bufferToHex(distributionPointName.toSchema().toBER(false))}`];
+    }
+    return [JSON.stringify(distributionPointName)];
+};
+
+const getGeneralNameKey = (generalName) => {
+    if(generalName?.type === 6 && typeof generalName.value === 'string') {
+        return `uri:${generalName.value}`;
+    }
+    if(typeof generalName?.toSchema === 'function') {
+        return `asn1:${bufferToHex(generalName.toSchema().toBER(false))}`;
+    }
+    return JSON.stringify(generalName);
+};
+
+const hasSharedName = (firstNames, secondNames) => {
+    if(firstNames.length === 0 || secondNames.length === 0) return false;
+    const secondNameSet = new Set(secondNames);
+    return firstNames.some(name => secondNameSet.has(name));
+};
+
+const bufferToHex = (buffer) => {
+    return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const isCRLNotYetValid = (crl) => {
+    return crl.thisUpdate.value > new Date();
+};
+
+const isCRLStale = (crl) => {
+    return !!crl.nextUpdate && crl.nextUpdate.value < new Date();
+};
+
+const isDeltaCRL = (crl) => {
+    return !!crl.crlExtensions?.extensions?.some(ext => ext.extnID === DELTA_CRL_INDICATOR_OID);
+};
+
+const fetchCRL = async (url, cachedFetcher) => {
+    const response = await cachedFetcher.fetch(url, 'crl');
+    if(!response.ok) {
+        throw new Error(`CRL request failed with HTTP ${response.status}`);
+    }
+    if(response.error) throw new Error(response.error);
+    return response.crl;
+};
+
+const parseCRL = (bytes) => {
+    const textPrefix = new TextDecoder().decode(bytes.slice(0, CRL_PEM_BEGIN.length + 20));
+    const crlBytes = textPrefix.trimStart().startsWith(CRL_PEM_BEGIN)
+        ? pemCRLToBytes(new TextDecoder().decode(bytes))
+        : bytes;
+    return CertificateRevocationList.fromBER(crlBytes);
+};
+
+const pemCRLToBytes = (pem) => {
+    const start = pem.indexOf(CRL_PEM_BEGIN);
+    const end = pem.indexOf(CRL_PEM_END);
+    if(start === -1 || end === -1) throw new Error('Unable to parse PEM CRL');
+    const base64 = pem.slice(start + CRL_PEM_BEGIN.length, end).replace(/\s/g, '');
+    return base64ToUint8Array$1(base64);
+};
+
+const resolveCertificateTrust = async (certificate, options) => {
+    if(!certificate) return { trusted: false, untrustedReasons: [UntrustedReason.CERTIFICATE_MISSING] };
+    certificate = normalizeCertificate(certificate);
+
+    const x509aki = getAuthorityKeyIdentifier(certificate);
+    if(!x509aki) return { trusted: false, untrustedReasons: [UntrustedReason.CERTIFICATE_AKI_MISSING] };
+
+    const { trustLists = [], trustScope, userTrustedIssuers, cachedFetcher, revocationCheckMode } = options;
+    const untrustedReasons = [];
+    const now = new Date();
+    if(isCertificateNotYetValid(certificate, now)) untrustedReasons.push(UntrustedReason.CERTIFICATE_NOT_YET_VALID);
+    if(isCertificateExpired(certificate, now)) untrustedReasons.push(UntrustedReason.CERTIFICATE_EXPIRED);
+
+    let registryIssuer = null;
+    let registryFetchFailed = false;
+    if(trustLists.length > 0) {
+        try {
+            registryIssuer = await getRegistryIssuerFromX509AKI(x509aki, { cachedFetcher });
+        } catch(error) {
+            registryFetchFailed = true;
+        }
+    }
+
+    const issuer = mergeIssuers(userTrustedIssuers[x509aki], registryIssuer);
+    let selectedCertificate = null;
+    if(issuer) {
+        issuer.certificates = await Promise.all(issuer.certificates.map(issuerCertificate => evaluateIssuerCertificate(
+            certificate, issuerCertificate, issuer.trust_scopes, { trustLists, trustScope, cachedFetcher, revocationCheckMode, now }
+        )));
+        for(const issuerCertificate of issuer.certificates) {
+            if(!selectedCertificate || (issuerCertificate.untrustedReasons?.length || 0) < (selectedCertificate.untrustedReasons?.length || 0)) {
+                selectedCertificate = issuerCertificate;
+            }
+        }
+    }
+
+    if(selectedCertificate) {
+        untrustedReasons.push(...selectedCertificate.untrustedReasons || []);
+    } else {
+        untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND);
+    }
+    if(registryFetchFailed && !selectedCertificate?.trusted) {
+        untrustedReasons.push(UntrustedReason.ISSUER_FETCH_FAILED);
+    }
+
+    return {
+        trusted: untrustedReasons.length === 0,
+        ...(issuer && { issuer }),
+        ...(untrustedReasons.length > 0 && { untrustedReasons }),
+    };
+};
+
+const evaluateIssuerCertificate = async (certificate, issuerCertificate, trustScopes, options) => {
+    const { trustLists, trustScope, cachedFetcher, revocationCheckMode, now } = options;
+    const parsedIssuerCertificate = parsePemCertificate(issuerCertificate.data);
+    const untrustedReasons = [];
+    if(isCertificateNotYetValid(parsedIssuerCertificate, now)) untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID);
+    if(isCertificateExpired(parsedIssuerCertificate, now)) untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_EXPIRED);
+    if(!issuerCertificate.trust_lists.includes('user_provided') && !issuerCertificate.trust_lists.some(trustList => trustLists.includes(trustList))) {
+        untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
+    }
+    if(trustScope != null && !trustScopes.includes(trustScope)) {
+        untrustedReasons.push(UntrustedReason.ISSUER_MISSING_REQUIRED_TRUST_SCOPE);
+    }
+
+    let revocationStatus = 'not_checked';
+    const signatureValid = await verifyCertificateSignature(certificate, parsedIssuerCertificate);
+    if(!signatureValid) {
+        untrustedReasons.push(UntrustedReason.CERTIFICATE_SIGNATURE_VERIFICATION_FAILED);
+    } else if(revocationCheckMode !== RevocationCheckMode.SKIP) {
+        const revocation = await checkCertificateRevocation(certificate, parsedIssuerCertificate, { cachedFetcher });
+        if(revocation.revoked) {
+            revocationStatus = 'revoked';
+            untrustedReasons.push(UntrustedReason.CERTIFICATE_REVOKED);
+        } else if(revocation.checked) {
+            revocationStatus = 'not_revoked';
+        } else if(revocationCheckMode === RevocationCheckMode.REQUIRED) {
+            untrustedReasons.push(UntrustedReason.REVOCATION_STATUS_UNDETERMINED);
+        }
+    }
+
+    return {
+        ...issuerCertificate,
+        trusted: untrustedReasons.length === 0,
+        revocationStatus,
+        ...(untrustedReasons.length > 0 && { untrustedReasons }),
+    };
+};
+
+const MAX_CACHE_ENTRIES = 1024;
+const CACHE_SWEEP_INTERVAL = 60 * 1000;
+
+class CachedFetcher {
+    constructor(options = {}) {
+        this.cacheEnabled = options.cacheEnabled ?? true;
+        this._cacheTTL = options.cacheTTL ?? 1000 * 60 * 60 * 24;
+        this._timeout = options.timeout ?? 10000;
+        this._cache = new Map();
+        this._inFlight = new Map();
+        this._lastCacheSweepAt = Date.now();
+    }
+
+    async fetch(url, purpose) {
+        const cached = this._get(purpose, url);
+        if(cached !== undefined) return cached;
+
+        const response = await this._fetch(url);
+        switch(purpose) {
+            case 'issuer': return this._cacheIssuerResponse(url, response);
+            case 'deprecation': return this._cacheDeprecationResponse(url, response);
+            case 'crl': return this._cacheCRLResponse(url, response);
+            default: throw new Error(`Unsupported fetch purpose: ${purpose}`);
+        }
+    }
+
+    _get(purpose, url) {
+        if(!this.cacheEnabled) return undefined;
+        const now = Date.now();
+        this._sweepExpiredEntries(now);
+        const key = `${purpose}:${url}`;
+        const cached = this._cache.get(key);
+        if(!cached) return undefined;
+        if(cached.expiresAt <= now) {
+            this._cache.delete(key);
+            return undefined;
+        }
+        this._cache.delete(key);
+        this._cache.set(key, cached);
+        return cached.value;
+    }
+
+    _set(purpose, url, value, options = {}) {
+        if(!this.cacheEnabled) return;
+        const now = Date.now();
+        this._sweepExpiredEntries(now);
+        const expiresAt = Math.min(now + this._cacheTTL, options.expiresAt ?? Infinity);
+        const key = `${purpose}:${url}`;
+        if(expiresAt <= now) {
+            this._cache.delete(key);
+            return;
+        }
+        this._cache.delete(key);
+        this._cache.set(key, { value, expiresAt });
+        if(this._cache.size > MAX_CACHE_ENTRIES) {
+            this._cache.delete(this._cache.keys().next().value);
+        }
+    }
+
+    _sweepExpiredEntries(now) {
+        if(now - this._lastCacheSweepAt < CACHE_SWEEP_INTERVAL) return;
+        this._lastCacheSweepAt = now;
+        for(const [key, cached] of this._cache) {
+            if(cached.expiresAt <= now) this._cache.delete(key);
+        }
+    }
+
+    async _cacheIssuerResponse(url, { bytes, ...result }) {
+        result.issuer = null;
+        if(result.ok) {
+            const issuer = JSON.parse(new TextDecoder().decode(bytes));
+            if(await verifyIssuer(issuer)) result.issuer = issuer;
+        }
+        if(result.issuer || result.status === 404) this._set('issuer', url, result);
+        return result;
+    }
+
+    _cacheDeprecationResponse(url, { bytes, ...result }) {
+        if(result.ok) {
+            try {
+                result.deprecationNotice = JSON.parse(new TextDecoder().decode(bytes));
+            } catch(error) {
+                result.error = error.message;
+            }
+        }
+        if(result.ok || result.status === 404) this._set('deprecation', url, result);
+        return result;
+    }
+
+    _cacheCRLResponse(url, { bytes, ...result }) {
+        if(result.ok) {
+            try {
+                result.crl = parseCRL(bytes);
+            } catch(error) {
+                // A completed download is reusable even when its contents are malformed.
+                result.error = error.message;
+            }
+        }
+        const nextUpdate = result.crl?.nextUpdate?.value.getTime();
+        if(result.ok || result.status === 404) {
+            this._set('crl', url, result, {
+                expiresAt: nextUpdate > Date.now() ? nextUpdate : undefined,
+            });
+        }
+        return result;
+    }
+
+    async _fetch(url) {
+        let request = this._inFlight.get(url);
+        if(!request) {
+            const controller = new AbortController();
+            request = { controller, consumers: 0 };
+            request.promise = this._download(url, controller.signal).finally(() => {
+                if(this._inFlight.get(url) === request) this._inFlight.delete(url);
+            });
+            this._inFlight.set(url, request);
+        }
+
+        request.consumers++;
+        let timeoutId;
+        try {
+            return await Promise.race([
+                request.promise,
+                new Promise((_resolve, reject) => {
+                    timeoutId = setTimeout(() => {
+                        const error = new Error(`Request timed out after ${this._timeout}ms`);
+                        error.name = 'TimeoutError';
+                        reject(error);
+                    }, this._timeout);
+                }),
+            ]);
+        } finally {
+            clearTimeout(timeoutId);
+            request.consumers--;
+            // A caller's timeout must not cancel other callers sharing the download.
+            if(request.consumers === 0 && this._inFlight.get(url) === request) {
+                this._inFlight.delete(url);
+                request.controller.abort();
+            }
+        }
+    }
+
+    async _download(url, signal) {
+        const response = await fetch(url, { signal });
+        const bytes = response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+        if(!response.ok) await response.body?.cancel();
+        return {
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText || '',
+            bytes,
+        };
+    }
+}
+
+class Registry {
+    constructor(options = {}) {
+        this._cachedFetcher = new CachedFetcher(options);
+        this._revocationCheckMode = normalizeRevocationCheckMode(options.revocationCheckMode);
+        this._userTrustedIssuers = buildUserTrustedIssuers(options.trustedIssuerCertificates ?? []);
+    }
+
+    async getEndOfLifeDate() {
+        const url = `${REGISTRY_URL_BASE}/deprecation_notice.json`;
+        const response = await this._cachedFetcher.fetch(url, 'deprecation');
+        let endOfLifeDate = null;
+        if (response.ok) {
+            if(response.error) throw new SyntaxError(response.error);
+            const deprecationNotice = response.deprecationNotice;
+            if(deprecationNotice.version) {
+                const [major, minor] = deprecationNotice.version.split('.').map(Number);
+                const [currentMajor, currentMinor] = MINOR_VERSION.split('.').map(Number);
+                if(!(major < currentMajor || (major === currentMajor && minor < currentMinor))) endOfLifeDate = new Date(deprecationNotice.end_of_life * 1000);
+            }
+        } else if (response.status === 404) {
+            endOfLifeDate = null;
+        } else {
+            throw new Error(`Failed to fetch deprecation notice: ${response.status} ${response.statusText || ''}`.trim());
+        }
+
+        return endOfLifeDate;
+    }
+
+    async getIssuerFromX509AKI(x509aki) {
+        return getIssuerFromX509AKI(x509aki, {
+            userTrustedIssuers: this._userTrustedIssuers,
+            cachedFetcher: this._cachedFetcher,
+        });
+    }
+
+    async resolveCertificateTrust(certificate, options = {}) {
+        return resolveCertificateTrust(certificate, {
+            ...options,
+            userTrustedIssuers: this._userTrustedIssuers,
+            cachedFetcher: this._cachedFetcher,
+            revocationCheckMode: this._revocationCheckMode,
+        });
+    }
+
+    static minorVersion = MINOR_VERSION;
+}
+
+const normalizeRevocationCheckMode = (revocationCheckMode) => {
+    const mode = revocationCheckMode ?? RevocationCheckMode.SKIP;
+    if(!Object.values(RevocationCheckMode).includes(mode)) {
+        throw new Error(`Unsupported CRL check mode: ${mode}`);
+    }
+
+    return mode;
+};
+
+/**
+ * Reasons a document may fail cryptographic or data-integrity verification
+ */
+const InvalidReason = {
+    MSO_NOT_YET_VALID: 'mso_not_yet_valid',
+    MSO_EXPIRED: 'mso_expired',
+    ISSUER_AUTH_SIGNATURE_INVALID: 'issuer_auth_signature_invalid',
+    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'document_signer_certificate_missing',
+    DEVICE_AUTH_FAILED: 'device_auth_failed',
+    CLAIM_DIGEST_MISMATCH: 'claim_digest_mismatch',
+};
+
+/**
+ * Supported document types for common identification documents
+ */
+const DocumentType = {
+    PHOTO_ID: 'org.iso.23220.photoid.1',
+    EU_PERSONAL_ID: 'eu.europa.ec.eudi.pid.1',
+    JAPAN_MY_NUMBER_CARD: 'org.iso.23220.1.jp.mnc',
+    MOBILE_DRIVERS_LICENSE: 'org.iso.18013.5.1.mDL',
+};
+
+/**
+ * Supported protocols for credential exchange
+ */
+const Protocol = {
+    MDOC: 'org-iso-mdoc',
+    OPENID4VP: 'openid4vp-v1-unsigned'
+};
+
+/**
+ * Supported credential formats
+ */
+const CredentialFormat = {
+    MSO_MDOC: 'mso_mdoc',
+    //DC_SD_JWT: 'dc+sd-jwt',
+    //LDP_VC: 'ldp_vc',
+    //JWT_VC_JSON: 'jwt_vc_json'
+};
+
+const ProtocolFormats = {
+    [Protocol.OPENID4VP]: [CredentialFormat.MSO_MDOC],//CredentialFormat.DC_SD_JWT, CredentialFormat.LDP_VC, CredentialFormat.JWT_VC_JSON],
+    [Protocol.MDOC]: [CredentialFormat.MSO_MDOC]
+};
+
+/**
+ * Supported claim fields that can be requested
+ */
+const Claim = {
+    AGE: 'age',
+    AGE_OVER_18: 'age_over_18',
+    AGE_OVER_21: 'age_over_21',
+    BIRTH_DATE: 'birth_date',
+    BIRTH_YEAR: 'birth_year',
+    FAMILY_NAME: 'family_name',
+    GIVEN_NAME: 'given_name',
+    SEX: 'sex',
+    HEIGHT: 'height',
+    WEIGHT: 'weight',
+    EYE_COLOR: 'eye_color',
+    HAIR_COLOR: 'hair_color',
+    ADDRESS: 'address',
+    CITY: 'city',
+    STATE: 'state',
+    POSTAL_CODE: 'postal_code',
+    COUNTRY: 'country',
+    NATIONALITY: 'nationality',
+    PLACE_OF_BIRTH: 'place_of_birth',
+    DOCUMENT_NUMBER: 'document_number',
+    ISSUING_AUTHORITY: 'issuing_authority',
+    ISSUING_COUNTRY: 'issuing_country',
+    ISSUING_JURISDICTION: 'issuing_jurisdiction',
+    ISSUE_DATE: 'issue_date',
+    EXPIRY_DATE: 'expiry_date',
+    DRIVING_PRIVILEGES: 'driving_privileges',
+    PORTRAIT: 'portrait',
+    SIGNATURE: 'signature',
+};
+
+const ClaimMappings = {
+    [CredentialFormat.MSO_MDOC]: {
+        [DocumentType.PHOTO_ID]: {
+            [Claim.GIVEN_NAME]: ['org.iso.23220.1', 'given_name_unicode'],
+            [Claim.FAMILY_NAME]: ['org.iso.23220.1', 'family_name_unicode'],
+            [Claim.BIRTH_DATE]: ['org.iso.23220.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['org.iso.23220.1', 'age_birth_year'],
+            [Claim.AGE]: ['org.iso.23220.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['org.iso.23220.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['org.iso.23220.1', 'age_over_21'],
+            //[Claim.HEIGHT]: ['', ''],
+            //[Claim.WEIGHT]: ['', ''],
+            //[Claim.EYE_COLOR]: ['', ''],
+            //[Claim.HAIR_COLOR]: ['', ''],
+            [Claim.ADDRESS]: ['org.iso.23220.1', 'resident_address_unicode'],
+            [Claim.CITY]: ['org.iso.23220.1', 'resident_city_unicode'],
+            [Claim.STATE]: ['org.iso.23220.photoid.1', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['org.iso.23220.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['org.iso.23220.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['org.iso.23220.1', 'nationality'],
+            [Claim.SEX]: ['org.iso.23220.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['org.iso.23220.1', 'birthplace'],
+            [Claim.DOCUMENT_NUMBER]: ['org.iso.23220.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['org.iso.23220.1', 'issuing_authority_unicode'],
+            [Claim.ISSUING_COUNTRY]: ['org.iso.23220.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['org.iso.23220.1', 'issuing_subdivision'],
+            [Claim.ISSUE_DATE]: ['org.iso.23220.1', 'issue_date'],
+            [Claim.EXPIRY_DATE]: ['org.iso.23220.1', 'expiry_date'],
+            //[Claim.DRIVING_PRIVILEGES]: ['', ''],
+            [Claim.PORTRAIT]: ['org.iso.23220.1', 'portrait'],
+            //[Claim.SIGNATURE]: ['', '']
+        },
+        [DocumentType.EU_PERSONAL_ID]: {
+            [Claim.GIVEN_NAME]: ['eu.europa.ec.eudi.pid.1', 'given_name'],
+            [Claim.FAMILY_NAME]: ['eu.europa.ec.eudi.pid.1', 'family_name'],
+            [Claim.BIRTH_DATE]: ['eu.europa.ec.eudi.pid.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['eu.europa.ec.eudi.pid.1', 'age_birth_year'],
+            [Claim.AGE]: ['eu.europa.ec.eudi.pid.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['eu.europa.ec.eudi.pid.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['eu.europa.ec.eudi.pid.1', 'age_over_21'],
+            //[Claim.HEIGHT]: ['', 'height'],
+            //[Claim.WEIGHT]: ['', 'weight'],
+            //[Claim.EYE_COLOR]: ['', 'eye_colour'],
+            //[Claim.HAIR_COLOR]: ['', 'hair_colour'],
+            [Claim.ADDRESS]: ['eu.europa.ec.eudi.pid.1', 'resident_address'],
+            [Claim.CITY]: ['eu.europa.ec.eudi.pid.1', 'resident_city'],
+            [Claim.STATE]: ['eu.europa.ec.eudi.pid.1', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['eu.europa.ec.eudi.pid.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['eu.europa.ec.eudi.pid.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['eu.europa.ec.eudi.pid.1', 'nationality'],
+            [Claim.SEX]: ['eu.europa.ec.eudi.pid.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['eu.europa.ec.eudi.pid.1', 'birth_place'],
+            [Claim.DOCUMENT_NUMBER]: ['eu.europa.ec.eudi.pid.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['eu.europa.ec.eudi.pid.1', 'issuing_authority'],
+            [Claim.ISSUING_COUNTRY]: ['eu.europa.ec.eudi.pid.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['eu.europa.ec.eudi.pid.1', 'issuing_jurisdiction'],
+            [Claim.ISSUE_DATE]: ['eu.europa.ec.eudi.pid.1', 'issuance_date'],
+            [Claim.EXPIRY_DATE]: ['eu.europa.ec.eudi.pid.1', 'expiry_date'],
+            //[Claim.DRIVING_PRIVILEGES]: ['', 'driving_privileges'],
+            [Claim.PORTRAIT]: ['eu.europa.ec.eudi.pid.1', 'portrait'],
+            //[Claim.SIGNATURE]: ['', 'signature_usual_mark']
+        },
+        [DocumentType.JAPAN_MY_NUMBER_CARD]: {
+            [Claim.GIVEN_NAME]: ['org.iso.23220.1', 'given_name_unicode'],
+            [Claim.FAMILY_NAME]: ['org.iso.23220.1', 'family_name_unicode'],
+            [Claim.BIRTH_DATE]: ['org.iso.23220.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['org.iso.23220.1', 'age_birth_year'],
+            [Claim.AGE]: ['org.iso.23220.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['org.iso.23220.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['org.iso.23220.1', 'age_over_21'],
+            //[Claim.HEIGHT]: ['', ''],
+            //[Claim.WEIGHT]: ['', ''],
+            //[Claim.EYE_COLOR]: ['', ''],
+            //[Claim.HAIR_COLOR]: ['', ''],
+            [Claim.ADDRESS]: ['org.iso.23220.1.jp', 'resident_address_unicode'],
+            [Claim.CITY]: ['org.iso.23220.1', 'resident_city_unicode'],
+            //[Claim.STATE]: ['', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['org.iso.23220.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['org.iso.23220.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['org.iso.23220.1', 'nationality'],
+            [Claim.SEX]: ['org.iso.23220.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['org.iso.23220.1', 'birthplace'],
+            [Claim.DOCUMENT_NUMBER]: ['org.iso.23220.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['org.iso.23220.1', 'issuing_authority_unicode'],
+            [Claim.ISSUING_COUNTRY]: ['org.iso.23220.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['org.iso.23220.1', 'issuing_subdivision'],
+            [Claim.ISSUE_DATE]: ['org.iso.23220.1', 'issue_date'],
+            [Claim.EXPIRY_DATE]: ['org.iso.23220.1', 'expiry_date'],
+            //[Claim.DRIVING_PRIVILEGES]: ['', ''],
+            [Claim.PORTRAIT]: ['org.iso.23220.1', 'portrait'],
+            //[Claim.SIGNATURE]: ['', '']
+        },
+        [DocumentType.MOBILE_DRIVERS_LICENSE]: {
+            [Claim.GIVEN_NAME]: ['org.iso.18013.5.1', 'given_name'],
+            [Claim.FAMILY_NAME]: ['org.iso.18013.5.1', 'family_name'],
+            [Claim.BIRTH_DATE]: ['org.iso.18013.5.1', 'birth_date'],
+            [Claim.BIRTH_YEAR]: ['org.iso.18013.5.1', 'age_birth_year'],
+            [Claim.AGE]: ['org.iso.18013.5.1', 'age_in_years'],
+            [Claim.AGE_OVER_18]: ['org.iso.18013.5.1', 'age_over_18'],
+            [Claim.AGE_OVER_21]: ['org.iso.18013.5.1', 'age_over_21'],
+            [Claim.HEIGHT]: ['org.iso.18013.5.1', 'height'],
+            [Claim.WEIGHT]: ['org.iso.18013.5.1', 'weight'],
+            [Claim.EYE_COLOR]: ['org.iso.18013.5.1', 'eye_colour'],
+            [Claim.HAIR_COLOR]: ['org.iso.18013.5.1', 'hair_colour'],
+            [Claim.ADDRESS]: ['org.iso.18013.5.1', 'resident_address'],
+            [Claim.CITY]: ['org.iso.18013.5.1', 'resident_city'],
+            [Claim.STATE]: ['org.iso.18013.5.1', 'resident_state'],
+            [Claim.POSTAL_CODE]: ['org.iso.18013.5.1', 'resident_postal_code'],
+            [Claim.COUNTRY]: ['org.iso.18013.5.1', 'resident_country'],
+            [Claim.NATIONALITY]: ['org.iso.18013.5.1', 'nationality'],
+            [Claim.SEX]: ['org.iso.18013.5.1', 'sex'],
+            [Claim.PLACE_OF_BIRTH]: ['org.iso.18013.5.1', 'birth_place'],
+            [Claim.DOCUMENT_NUMBER]: ['org.iso.18013.5.1', 'document_number'],
+            [Claim.ISSUING_AUTHORITY]: ['org.iso.18013.5.1', 'issuing_authority'],
+            [Claim.ISSUING_COUNTRY]: ['org.iso.18013.5.1', 'issuing_country'],
+            [Claim.ISSUING_JURISDICTION]: ['org.iso.18013.5.1', 'issuing_jurisdiction'],
+            [Claim.ISSUE_DATE]: ['org.iso.18013.5.1', 'issue_date'],
+            [Claim.EXPIRY_DATE]: ['org.iso.18013.5.1', 'expiry_date'],
+            [Claim.DRIVING_PRIVILEGES]: ['org.iso.18013.5.1', 'driving_privileges'],
+            [Claim.PORTRAIT]: ['org.iso.18013.5.1', 'portrait'],
+            [Claim.SIGNATURE]: ['org.iso.18013.5.1', 'signature_usual_mark']
+        }
+    }
+};
+
+const REVERSE_CLAIM_MAPPINGS = {};
+for(const format in ClaimMappings) {
+    REVERSE_CLAIM_MAPPINGS[format] = {};
+    for(const documentType in ClaimMappings[format]) {
+        REVERSE_CLAIM_MAPPINGS[format][documentType] = {};
+        for(const claim in ClaimMappings[format][documentType]) {
+            let mappedValue = ClaimMappings[format][documentType][claim];
+            mappedValue = mappedValue[mappedValue.length - 1];
+            REVERSE_CLAIM_MAPPINGS[format][documentType][mappedValue] = claim;
+        }
+    }
+}
+
+const CoseAlgToWebCrypto = {
+    [-7]:   { name: 'ECDSA', hash: 'SHA-256', namedCurve: 'P-256' },       // ES256
+    [-35]:  { name: 'ECDSA', hash: 'SHA-384', namedCurve: 'P-384' },       // ES384
+    [-36]:  { name: 'ECDSA', hash: 'SHA-512', namedCurve: 'P-521' },       // ES512
+
+    [-37]:  { name: 'RSASSA-PSS', hash: 'SHA-256' },                       // PS256
+    [-38]:  { name: 'RSASSA-PSS', hash: 'SHA-384' },                       // PS384
+    [-39]:  { name: 'RSASSA-PSS', hash: 'SHA-512' },                       // PS512
+
+    [-257]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },                // RS256
+    [-258]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' },                // RS384
+    [-259]: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-512' }                 // RS512
+};
+
+const CoseKtyMap = {
+    1: 'OKP',
+    2: 'EC',
+    3: 'RSA'
+};
+
+const CoseCrvMap = {
+    // EC2 Curves
+    1: 'P-256',
+    2: 'P-384',
+    3: 'P-521',
+    // OKP Curves
+    6: 'Ed25519',
+    7: 'Ed448',
+    8: 'X25519',
+    9: 'X448'
+};
+
+const CoseKeyAlgoMap = {
+    'EC-P-256': { name: 'ECDSA', namedCurve: 'P-256' },
+    'EC-P-384': { name: 'ECDSA', namedCurve: 'P-384' },
+    'EC-P-521': { name: 'ECDSA', namedCurve: 'P-521' },
+    'OKP-Ed25519': { name: 'Ed25519' },
+    'OKP-Ed448': { name: 'Ed448' },
+    'OKP-X25519': { name: 'ECDH' },
+    'OKP-X448': { name: 'ECDH' },
+    'RSA': { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+};
+
+const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let priorWarning = 0;
+
+async function checkRegistryDeprecation(registry) {
+    try {
+        const endOfLifeDate = await registry.getEndOfLifeDate();
+        if(endOfLifeDate && priorWarning < Date.now() - WARNING_INTERVAL_MS) logEndOfLifeWarning(endOfLifeDate);
+    } catch(error) {
+        console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
+        console.error(error);
+    }
+}
+
+function logEndOfLifeWarning(endOfLifeDate) {
+    if(endOfLifeDate.getTime() < Date.now()) {
+        console.warn(`trusted-issuer-registry minor version ${Registry.minorVersion} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
+    } else {
+        console.warn(`trusted-issuer-registry minor version ${Registry.minorVersion} reaching end of life on ${endOfLifeDate.toISOString().split('T')[0]}, please update to the latest major/minor version before then to avoid outdated issuer information`);
+    }
+    priorWarning = Date.now();
+}
 
 const f$4={POS_INT:0,NEG_INT:1,BYTE_STRING:2,UTF8_STRING:3,ARRAY:4,MAP:5,TAG:6,SIMPLE_FLOAT:7},I={DATE_STRING:0,DATE_EPOCH:1,POS_BIGINT:2,NEG_BIGINT:3,CBOR:24,URI:32,BASE64URL:33,BASE64:34,SET:258,JSON:262,WTF8:273,REGEXP:21066,SELF_DESCRIBED:55799,INVALID_16:65535,INVALID_32:4294967295,INVALID_64:0xffffffffffffffffn},o$2={ZERO:0,ONE:24,TWO:25,FOUR:26,EIGHT:27,INDEFINITE:31},T$2={FALSE:20,TRUE:21,NULL:22,UNDEFINED:23};let N$2 = class N{static BREAK=Symbol.for("github.com/hildjj/cbor2/break");static ENCODED=Symbol.for("github.com/hildjj/cbor2/cbor-encoded");static LENGTH=Symbol.for("github.com/hildjj/cbor2/length")};const S$1={MIN:-(2n**63n),MAX:2n**64n-1n};
 
@@ -25894,6 +26520,104 @@ function c(i){const e={...w$1.defaultDecodeOptions};if(i.dcbor?Object.assign(e,w
 
 const{cdeDecodeOptions:r,dcborDecodeOptions:n,defaultDecodeOptions:d}=w$1;
 
+/**
+ * Parse the document signer certificate from an X.509 chain
+ * @param {Array|Uint8Array} x5chain - The X.509 chain
+ * @returns {Certificate|null} - The parsed document signer certificate
+ */
+const parseX5Chain = (x5chain) => {
+    if(Array.isArray(x5chain)) x5chain = x5chain[0];
+    return x5chain ? Certificate.fromBER(x5chain) : null;
+};
+
+/**
+ * Convert a X.509 certificate to a Web Crypto public key
+ * @param {Certificate} x509Cert - The X.509 certificate
+ * @param {string} coseAlg - The COSE algorithm
+ * @returns {Promise<CryptoKey>} - The Web Crypto public key
+ */
+const x509ToWebCryptoKey = async (x509Cert, coseAlg) => {
+    try {
+        const publicKeyInfo = x509Cert.subjectPublicKeyInfo;
+        const spkiBytes = publicKeyInfo.toSchema().toBER();
+        const webCryptoAlg = CoseAlgToWebCrypto[coseAlg];
+        const certKey = await crypto.subtle.importKey(
+            'spki',
+            spkiBytes,
+            webCryptoAlg,
+            false,
+            ['verify']
+        );
+
+        return certKey;
+    } catch (error) {
+        console.error('Error converting X.509 to SPKI:', error);
+        throw error;
+    }
+};
+
+/**
+ * Convert a base64 string to a Uint8Array
+ * @param {string} base64 - The base64 string
+ * @returns {Uint8Array} - The Uint8Array
+ */
+const base64ToUint8Array = (base64) => {
+    if(typeof Buffer == 'function') {
+        return new Uint8Array(Buffer.from(base64, 'base64'));
+    } else if(typeof atob === 'function') {
+        const raw = atob(base64);
+        const bytes = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) {
+            bytes[i] = raw.charCodeAt(i);
+        }
+        return bytes;
+    } else {
+        throw new Error('No base64 decoder available in this environment');
+    }
+};
+
+/**
+ * Convert a base64url string to a Uint8Array
+ * @param {string} base64url - The base64url string
+ * @returns {Uint8Array} - The Uint8Array
+ */
+const base64urlToUint8Array = (base64url) => {
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
+    return base64ToUint8Array(base64 + pad);
+};
+
+const bufferToBase64 = (input) => {
+    let bytes;
+    if (input instanceof Uint8Array) {
+        bytes = input;
+    } else if (input instanceof ArrayBuffer) {
+        bytes = new Uint8Array(input);
+    } else if (input.buffer instanceof ArrayBuffer) {
+        bytes = new Uint8Array(input.buffer).slice(input.byteOffset, input.byteOffset + input.byteLength);
+    } else {
+        throw new Error('Invalid input type');
+    }
+
+    // Convert to base64 string
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = typeof Buffer == 'function'
+        ? Buffer.from(binary, 'binary').toString('base64')
+        : btoa(binary);
+
+    return base64;
+};
+
+const bufferToBase64Url = (input) => {
+    const base64 = bufferToBase64(input);
+
+    // Convert base64 to base64url
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
 const verifyCoseSign1 = async (coseKey, publicKey) => {
     try {
         const [protectedHeadersRaw, _unprotectedHeaders, payloadRaw, signatureRaw] = coseKey;
@@ -26113,769 +26837,6 @@ function uint8ArrayBytewiseEqual(a, b) {
     return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
-const BASIC_CONSTRAINTS_OID = '2.5.29.19';
-const KEY_USAGE_OID = '2.5.29.15';
-const DELTA_CRL_INDICATOR_OID = '2.5.29.27';
-const ISSUING_DISTRIBUTION_POINT_OID = '2.5.29.28';
-const CRL_DISTRIBUTION_POINTS_OID = '2.5.29.31';
-const CRL_PEM_BEGIN = '-----BEGIN X509 CRL-----';
-const CRL_PEM_END = '-----END X509 CRL-----';
-const DEFAULT_CRL_TIMEOUT = 5000;
-const DEFAULT_CRL_CACHE_TTL = 1000 * 60 * 60 * 24;
-const HTTP_NOT_FOUND = 404;
-const ALL_REASONS_MASK = 0x1FE;
-const CRL_SIGN_KEY_USAGE_MASK = 0x02;
-const defaultCRLCache = new Map();
-
-const getCRLDistributionPoints = (certificate) => {
-    const extension = certificate?.extensions?.find(ext => ext.extnID === CRL_DISTRIBUTION_POINTS_OID);
-    if(!extension) return [];
-
-    const crlDistributionPoints = parseExtensionValue(
-        extension,
-        CRLDistributionPoints,
-        'Unable to parse CRL Distribution Points'
-    );
-
-    return crlDistributionPoints.distributionPoints
-        .map(distributionPoint => ({
-            distributionPoint: distributionPoint,
-            urls: getDistributionPointUrls(distributionPoint),
-        }))
-        .filter(distributionPoint => distributionPoint.urls.length > 0);
-};
-
-const checkCertificateRevocation = async (certificate, issuerCertificate, options = {}) => {
-    const {
-        crlTimeout = DEFAULT_CRL_TIMEOUT,
-        crlCacheEnabled = true,
-        crlCacheTTL = DEFAULT_CRL_CACHE_TTL,
-        crlCache = defaultCRLCache,
-    } = options;
-    let distributionPoints;
-    try {
-        distributionPoints = getCRLDistributionPoints(certificate);
-    } catch(error) {
-        return {
-            checked: false,
-            revoked: false,
-            urls: [],
-            error: error.message,
-        };
-    }
-    const urls = getAllDistributionPointUrls(distributionPoints);
-
-    const result = {
-        checked: false,
-        revoked: false,
-        urls: urls,
-    };
-
-    if(urls.length === 0) return result;
-
-    const errors = [];
-    const supportedDistributionPoints = [];
-    for(const distributionPoint of distributionPoints) {
-        if(hasDelegatedCRLIssuer(distributionPoint)) {
-            errors.push('Delegated CRL issuers are not supported');
-        } else {
-            supportedDistributionPoints.push(distributionPoint);
-        }
-    }
-    const supportedUrls = getAllDistributionPointUrls(supportedDistributionPoints);
-
-    if(supportedUrls.length === 0) {
-        if(errors.length > 0) result.error = errors.join('; ');
-        return result;
-    }
-
-    let crlIssuerCertificate;
-    try {
-        crlIssuerCertificate = getIssuerCertificate(issuerCertificate);
-        validateCRLIssuerCertificate(crlIssuerCertificate);
-    } catch(error) {
-        result.error = error.message;
-        return result;
-    }
-
-    const crlSources = getCachedCRLResultsByUrl(supportedUrls, {
-        crlCacheEnabled: crlCacheEnabled,
-        crlCache: crlCache,
-    });
-
-    const evaluationState = {
-        coveredReasonsMask: 0,
-        errors: errors,
-    };
-    const crlEvaluationOptions = {
-        crlCacheEnabled: crlCacheEnabled,
-        crlCache: crlCache,
-        crlCacheTTL: crlCacheTTL,
-    };
-
-    for(const crlResult of crlSources.cachedResults) {
-        const revocationResult = await evaluateCRLResult(crlResult, supportedDistributionPoints, certificate, crlIssuerCertificate, urls, crlEvaluationOptions, evaluationState);
-        if(revocationResult) {
-            return revocationResult;
-        }
-    }
-
-    const pendingResultsByUrl = getPendingCRLResultsByUrl(crlSources.uncachedUrls, {
-        crlTimeout: crlTimeout,
-        crlCacheEnabled: crlCacheEnabled,
-        crlCache: crlCache,
-        crlCacheTTL: crlCacheTTL,
-    });
-
-    while(pendingResultsByUrl.size > 0) {
-        const crlResult = await getNextCRLResult(pendingResultsByUrl);
-        const revocationResult = await evaluateCRLResult(crlResult, supportedDistributionPoints, certificate, crlIssuerCertificate, urls, crlEvaluationOptions, evaluationState);
-        if(revocationResult) {
-            cachePendingCRLResults(pendingResultsByUrl, supportedDistributionPoints, certificate, crlIssuerCertificate, urls, crlEvaluationOptions);
-            return revocationResult;
-        }
-    }
-
-    if(evaluationState.coveredReasonsMask > 0 && !isCompleteCRLCoverage(evaluationState.coveredReasonsMask)) {
-        evaluationState.errors.push('CRL coverage is incomplete');
-    }
-
-    if(evaluationState.errors.length > 0) result.error = evaluationState.errors.join('; ');
-    return result;
-};
-
-const getCachedCRLResultsByUrl = (urls, options) => {
-    const {
-        crlCacheEnabled,
-        crlCache,
-    } = options;
-    const cachedResults = [];
-    const uncachedUrls = [];
-
-    for(const url of urls) {
-        const cached = crlCacheEnabled ? getCachedCRL(crlCache, url) : null;
-        if(cached?.error) {
-            cachedResults.push({
-                url: url,
-                error: new Error(cached.error),
-            });
-            continue;
-        }
-        if(cached?.crl) {
-            cachedResults.push({
-                url: url,
-                crl: cached.crl,
-                fromCache: true,
-            });
-            continue;
-        }
-
-        uncachedUrls.push(url);
-    }
-
-    return {
-        cachedResults: cachedResults,
-        uncachedUrls: uncachedUrls,
-    };
-};
-
-const getPendingCRLResultsByUrl = (urls, options) => {
-    const {
-        crlTimeout,
-        crlCacheEnabled,
-        crlCache,
-        crlCacheTTL,
-    } = options;
-    const pendingResultsByUrl = new Map();
-
-    for(const url of urls) {
-        if(typeof fetch !== 'function') continue;
-
-        pendingResultsByUrl.set(url, fetchAndParseCRL(url, crlTimeout)
-            .then(crl => ({
-                url: url,
-                crl: crl,
-                fromCache: false,
-            }))
-            .catch(error => {
-                if(error.status === HTTP_NOT_FOUND && crlCacheEnabled) {
-                    cacheCRLError(crlCache, url, error, crlCacheTTL);
-                }
-                return {
-                    url: url,
-                    error: error,
-                };
-            }));
-    }
-
-    return pendingResultsByUrl;
-};
-
-const getNextCRLResult = async (pendingResultsByUrl) => {
-    const result = await Promise.race(pendingResultsByUrl.values());
-    pendingResultsByUrl.delete(result.url);
-    return result;
-};
-
-const cachePendingCRLResults = (pendingResultsByUrl, distributionPoints, certificate, crlIssuerCertificate, urls, options) => {
-    if(!options.crlCacheEnabled) return;
-
-    const pendingResults = [...pendingResultsByUrl.values()];
-    if(pendingResults.length === 0) return;
-
-    for(const pendingResult of pendingResults) {
-        pendingResult
-            .then(crlResult => evaluateCRLResult(
-                crlResult,
-                distributionPoints,
-                certificate,
-                crlIssuerCertificate,
-                urls,
-                options,
-                { coveredReasonsMask: 0, errors: [] }
-            ))
-            .catch(() => {});
-    }
-};
-
-const evaluateCRLResult = async (crlResult, distributionPoints, certificate, crlIssuerCertificate, urls, options, state) => {
-    const {
-        crlCacheEnabled,
-        crlCache,
-        crlCacheTTL,
-    } = options;
-    const {
-        url,
-        crl,
-        fromCache = false,
-        error,
-    } = crlResult;
-
-    if(error) {
-        state.errors.push(error.message);
-        return null;
-    }
-
-    try {
-        ensurePKIjsCryptoEngine();
-        const signatureValid = await crl.verify({
-            issuerCertificate: crlIssuerCertificate,
-        });
-        if(!signatureValid) {
-            state.errors.push(`Invalid CRL signature for ${url}`);
-            return null;
-        }
-
-        const matchingDistributionPoints = distributionPoints.filter(distributionPoint => distributionPoint.urls.includes(url));
-        for(const distributionPoint of matchingDistributionPoints) {
-            const coverage = getCRLCoverage(certificate, crl, distributionPoint.distributionPoint);
-            if(!coverage.coversCertificate) {
-                state.errors.push(`${coverage.error} for ${url}`);
-                continue;
-            }
-
-            if(isCRLNotYetValid(crl)) {
-                state.errors.push(`CRL is not yet valid for ${url}`);
-                continue;
-            }
-
-            const stale = isCRLStale(crl);
-            if(!stale && !fromCache && crlCacheEnabled) cacheCRL(crlCache, url, crl, crlCacheTTL);
-
-            if(crl.isCertificateRevoked(certificate)) {
-                return {
-                    checked: true,
-                    revoked: true,
-                    urls: urls,
-                    url: url,
-                };
-            }
-
-            if(isDeltaCRL(crl)) {
-                state.errors.push(`Delta CRL cannot establish non-revoked status for ${url}`);
-                continue;
-            }
-
-            if(!stale) {
-                state.coveredReasonsMask |= coverage.reasonsMask;
-                if(isCompleteCRLCoverage(state.coveredReasonsMask)) {
-                    return {
-                        checked: true,
-                        revoked: false,
-                        urls: urls,
-                        url: url,
-                    };
-                }
-                continue;
-            }
-
-            state.errors.push(`CRL is stale for ${url}`);
-        }
-    } catch(error) {
-        state.errors.push(error.message);
-    }
-
-    return null;
-};
-
-const getDistributionPointUrls = (distributionPoint) => {
-    if(!Array.isArray(distributionPoint.distributionPoint)) return [];
-
-    const urls = [];
-    for(const generalName of distributionPoint.distributionPoint) {
-        if(generalName.type === 6 && typeof generalName.value === 'string') {
-            urls.push(generalName.value);
-        }
-    }
-    return [...new Set(urls)];
-};
-
-const hasDelegatedCRLIssuer = (distributionPoint) => {
-    return distributionPoint.distributionPoint.cRLIssuer?.length > 0;
-};
-
-const getAllDistributionPointUrls = (distributionPoints) => {
-    const urls = [];
-    for(const distributionPoint of distributionPoints) {
-        urls.push(...distributionPoint.urls);
-    }
-    return [...new Set(urls)];
-};
-
-const getIssuerCertificate = (issuerCertificate) => {
-    if(issuerCertificate instanceof Certificate) return issuerCertificate;
-    if(issuerCertificate?.parsedCertificate instanceof Certificate) return issuerCertificate.parsedCertificate;
-    if(typeof issuerCertificate === 'string') return parsePemCertificate(issuerCertificate);
-    if(typeof issuerCertificate?.data === 'string') return parsePemCertificate(issuerCertificate.data);
-    throw new Error('Issuer certificate is required to verify CRL signature');
-};
-
-const validateCRLIssuerCertificate = (issuerCertificate) => {
-    if(issuerCertificate.version !== 2) return;
-
-    const keyUsage = issuerCertificate.extensions?.find(ext => ext.extnID === KEY_USAGE_OID);
-    if(!keyUsage) throw new Error('CRL issuer certificate key usage does not allow CRL signing');
-
-    const keyUsageValue = fromBER(keyUsage.extnValue.valueBlock.valueHex);
-    if(keyUsageValue.offset === -1) throw new Error('Unable to parse CRL issuer certificate key usage');
-
-    const keyUsageBytes = new Uint8Array(keyUsageValue.result.valueBlock.valueHexView || keyUsageValue.result.valueBlock.valueHex || []);
-    if(!(keyUsageBytes[0] & CRL_SIGN_KEY_USAGE_MASK)) {
-        throw new Error('CRL issuer certificate key usage does not allow CRL signing');
-    }
-};
-
-const ensurePKIjsCryptoEngine = () => {
-    try {
-        getCrypto(true);
-    } catch(error) {
-        if(!globalThis.crypto?.subtle) throw error;
-        setEngine('webcrypto', new CryptoEngine({ name: 'webcrypto', crypto: globalThis.crypto }));
-    }
-};
-
-const getCRLCoverage = (certificate, crl, distributionPoint) => {
-    if(!crl.issuer.isEqual(certificate.issuer)) {
-        return {
-            coversCertificate: false,
-            error: 'CRL issuer does not match certificate issuer',
-        };
-    }
-
-    const issuingDistributionPoint = getIssuingDistributionPoint(crl);
-    const issuingDistributionPointCoverage = getIssuingDistributionPointCoverage(
-        certificate,
-        issuingDistributionPoint,
-        distributionPoint
-    );
-    if(!issuingDistributionPointCoverage.coversCertificate) return issuingDistributionPointCoverage;
-
-    const distributionPointReasons = getReasonMask(distributionPoint.reasons);
-    const crlReasons = issuingDistributionPoint?.onlySomeReasons === undefined
-        ? ALL_REASONS_MASK
-        : getReasonMaskFromBytes(new Uint8Array([issuingDistributionPoint.onlySomeReasons]));
-    const reasonsMask = distributionPointReasons & crlReasons;
-
-    if(reasonsMask === 0) {
-        return {
-            coversCertificate: false,
-            error: 'CRL reason scope does not cover certificate distribution point',
-        };
-    }
-
-    return {
-        coversCertificate: true,
-        reasonsMask: reasonsMask,
-    };
-};
-
-const getIssuingDistributionPointCoverage = (certificate, issuingDistributionPoint, distributionPoint) => {
-    if(!issuingDistributionPoint) {
-        return {
-            coversCertificate: true,
-        };
-    }
-
-    if(issuingDistributionPoint.indirectCRL) {
-        return {
-            coversCertificate: false,
-            error: 'Indirect CRLs are not supported',
-        };
-    }
-
-    if(issuingDistributionPoint.onlyContainsAttributeCerts) {
-        return {
-            coversCertificate: false,
-            error: 'CRL only covers attribute certificates',
-        };
-    }
-
-    const certificateIsCA = isCertificateCA(certificate);
-    if(issuingDistributionPoint.onlyContainsCACerts && !certificateIsCA) {
-        return {
-            coversCertificate: false,
-            error: 'CRL only covers CA certificates',
-        };
-    }
-
-    if(issuingDistributionPoint.onlyContainsUserCerts && certificateIsCA) {
-        return {
-            coversCertificate: false,
-            error: 'CRL only covers user certificates',
-        };
-    }
-
-    if(issuingDistributionPoint.distributionPoint) {
-        const crlDistributionPointNames = getDistributionPointNameKeys(issuingDistributionPoint.distributionPoint);
-        const certificateDistributionPointNames = getDistributionPointNameKeys(distributionPoint.distributionPoint);
-        if(!hasSharedName(crlDistributionPointNames, certificateDistributionPointNames)) {
-            return {
-                coversCertificate: false,
-                error: 'CRL distribution point scope does not match certificate distribution point',
-            };
-        }
-    }
-
-    return {
-        coversCertificate: true,
-    };
-};
-
-const getIssuingDistributionPoint = (crl) => {
-    const extension = crl.crlExtensions?.extensions?.find(ext => ext.extnID === ISSUING_DISTRIBUTION_POINT_OID);
-    if(!extension) return null;
-    return parseExtensionValue(
-        extension,
-        IssuingDistributionPoint,
-        'Unable to parse Issuing Distribution Point'
-    );
-};
-
-const getReasonMask = (reasons) => {
-    if(!reasons) return ALL_REASONS_MASK;
-    const bytes = new Uint8Array(reasons.valueBlock.valueHexView || reasons.valueBlock.valueHex || []);
-    return getReasonMaskFromBytes(bytes);
-};
-
-const getReasonMaskFromBytes = (bytes) => {
-    let mask = 0;
-    for(let byteIndex = 0; byteIndex < bytes.length; byteIndex++) {
-        for(let bitIndex = 0; bitIndex < 8; bitIndex++) {
-            if(bytes[byteIndex] & (0x80 >> bitIndex)) {
-                mask |= 1 << ((byteIndex * 8) + bitIndex);
-            }
-        }
-    }
-    return mask & ALL_REASONS_MASK;
-};
-
-const isCompleteCRLCoverage = (reasonsMask) => {
-    return (reasonsMask & ALL_REASONS_MASK) === ALL_REASONS_MASK;
-};
-
-const isCertificateCA = (certificate) => {
-    const extension = certificate?.extensions?.find(ext => ext.extnID === BASIC_CONSTRAINTS_OID);
-    if(!extension) return false;
-
-    try {
-        const basicConstraints = parseExtensionValue(
-            extension,
-            BasicConstraints,
-            'Unable to parse Basic Constraints'
-        );
-        return !!basicConstraints.cA;
-    } catch(error) {
-        return false;
-    }
-};
-
-const getDistributionPointNameKeys = (distributionPointName) => {
-    if(!distributionPointName) return [];
-    if(Array.isArray(distributionPointName)) {
-        return distributionPointName
-            .map(generalName => getGeneralNameKey(generalName));
-    }
-    if(typeof distributionPointName.toSchema === 'function') {
-        return [`rdn:${bufferToHex(distributionPointName.toSchema().toBER(false))}`];
-    }
-    return [JSON.stringify(distributionPointName)];
-};
-
-const getGeneralNameKey = (generalName) => {
-    if(generalName?.type === 6 && typeof generalName.value === 'string') {
-        return `uri:${generalName.value}`;
-    }
-    if(typeof generalName?.toSchema === 'function') {
-        return `asn1:${bufferToHex(generalName.toSchema().toBER(false))}`;
-    }
-    return JSON.stringify(generalName);
-};
-
-const hasSharedName = (firstNames, secondNames) => {
-    if(firstNames.length === 0 || secondNames.length === 0) return false;
-    const secondNameSet = new Set(secondNames);
-    return firstNames.some(name => secondNameSet.has(name));
-};
-
-const bufferToHex = (buffer) => {
-    return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('');
-};
-
-const parseExtensionValue = (extension, ExtensionValue, errorMessage) => {
-    if(extension.parsedValue instanceof ExtensionValue) return extension.parsedValue;
-
-    const asn1 = fromBER(extension.extnValue.valueBlock.valueHex);
-    if(asn1.offset === -1) throw new Error(errorMessage);
-    return new ExtensionValue({ schema: asn1.result });
-};
-
-const getCachedCRL = (crlCache, url) => {
-    const cached = crlCache.get(url);
-    if(!cached) return null;
-    if(cached.expiresAt <= Date.now()) {
-        crlCache.delete(url);
-        return null;
-    }
-    return cached;
-};
-
-const cacheCRL = (crlCache, url, crl, ttl) => {
-    const expiresAt = getCRLCacheExpiration(crl, ttl);
-    if(expiresAt <= Date.now()) return;
-    crlCache.set(url, {
-        crl: crl,
-        expiresAt: expiresAt,
-    });
-};
-
-const cacheCRLError = (crlCache, url, error, ttl) => {
-    const expiresAt = Date.now() + ttl;
-    if(expiresAt <= Date.now()) return;
-    crlCache.set(url, {
-        error: error.message,
-        expiresAt: expiresAt,
-    });
-};
-
-const getCRLCacheExpiration = (crl, ttl) => {
-    const ttlExpiration = Date.now() + ttl;
-    if(!crl.nextUpdate) return ttlExpiration;
-    return Math.min(ttlExpiration, crl.nextUpdate.value.getTime());
-};
-
-const isCRLNotYetValid = (crl) => {
-    return crl.thisUpdate.value > new Date();
-};
-
-const isCRLStale = (crl) => {
-    return !!crl.nextUpdate && crl.nextUpdate.value < new Date();
-};
-
-const isDeltaCRL = (crl) => {
-    return !!crl.crlExtensions?.extensions?.some(ext => ext.extnID === DELTA_CRL_INDICATOR_OID);
-};
-
-const fetchAndParseCRL = async (url, timeout) => {
-    const crlBytes = await fetchCRL(url, timeout);
-    return parseCRL(crlBytes);
-};
-
-const fetchCRL = async (url, timeout) => {
-    const controller = typeof AbortController === 'function' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), timeout) : null;
-
-    try {
-        const response = await fetch(url, {
-            signal: controller?.signal,
-        });
-        if(!response.ok) {
-            const error = new Error(`CRL request failed with HTTP ${response.status}`);
-            error.status = response.status;
-            throw error;
-        }
-        return new Uint8Array(await response.arrayBuffer());
-    } finally {
-        if(timeoutId) clearTimeout(timeoutId);
-    }
-};
-
-const parseCRL = (bytes) => {
-    const textPrefix = new TextDecoder().decode(bytes.slice(0, CRL_PEM_BEGIN.length + 20));
-    const crlBytes = textPrefix.trimStart().startsWith(CRL_PEM_BEGIN)
-        ? pemCRLToBytes(new TextDecoder().decode(bytes))
-        : bytes;
-    const arrayBuffer = crlBytes.buffer.slice(crlBytes.byteOffset, crlBytes.byteOffset + crlBytes.byteLength);
-    const asn1 = fromBER(arrayBuffer);
-    if(asn1.offset === -1) throw new Error('Unable to parse CRL');
-    return new CertificateRevocationList({ schema: asn1.result });
-};
-
-const pemCRLToBytes = (pem) => {
-    const start = pem.indexOf(CRL_PEM_BEGIN);
-    const end = pem.indexOf(CRL_PEM_END);
-    if(start === -1 || end === -1) throw new Error('Unable to parse PEM CRL');
-    const base64 = pem.slice(start + CRL_PEM_BEGIN.length, end).replace(/\s/g, '');
-    return base64ToUint8Array$1(base64);
-};
-
-const registry = new TrustedIssuerRegistry();
-const WARNING_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
-let priorWarning = 0;
-
-const getIssuerCandidatesForCertificate = async (certificate) => {
-    if(!certificate) return [];
-
-    const aki = getAuthorityKeyIdentifier(certificate);
-    if(!aki) return [];
-
-    checkRegistryDeprecation();//No need to wait for this to complete
-    const issuer = await registry.getIssuerFromX509AKI(aki);
-    if(!issuer) return [];
-
-    const matchingCertificates = await getMatchingIssuerCertificates(certificate, issuer.certificates);
-    return matchingCertificates.map(matchedCertificate =>
-        createIssuerCandidate(issuer, matchedCertificate));
-};
-
-const createIssuerCandidate = (issuer, certificate) => {
-    const { certificates: _certificates, ...issuerFields } = issuer;
-
-    return {
-        ...issuerFields,
-        display: { ...(issuer.display || {}) },
-        entity_metadata: { ...(issuer.entity_metadata || {}) },
-        certificate: {
-            ...certificate,
-            trust_lists: [...(certificate.trust_lists || [])],
-        },
-    };
-};
-
-async function checkRegistryDeprecation() {
-    try {
-        const endOfLifeDate = await registry.getEndOfLifeDate();
-        if(endOfLifeDate && priorWarning < Date.now() - WARNING_INTERVAL_MS) logEndOfLifeWarning(endOfLifeDate);
-    } catch(error) {
-        console.error('Error encountered while trying to get trusted-issuer-registry end of life date');
-        console.error(error);
-    }
-}
-
-function logEndOfLifeWarning(endOfLifeDate) {
-    if(endOfLifeDate.getTime() < Date.now()) {
-        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} has reached its end of life, please update to the latest major/minor version as soon as possible to receive the latest issuer information`);
-    } else {
-        console.warn(`trusted-issuer-registry minor version ${TrustedIssuerRegistry.minorVersion} reaching end of life on ${endOfLifeDate.toISOString().split('T')[0]}, please update to the latest major/minor version before then to avoid outdated issuer information`);
-    }
-    priorWarning = Date.now();
-}
-
-const getDocumentTrustInfo = async (certificate, options = {}) => {
-    const untrustedReason = checkIfCertificateHasIssuerInfo(certificate);
-    if(untrustedReason) {
-        return {
-            issuer: null,
-            trusted: false,
-            untrustedReasons: [untrustedReason],
-        };
-    }
-    const signerCertInvalidReason = getDocumentSignerCertificateValidityReason(
-        certificate);
-
-    const { issuer, untrustedReasons } = await getIssuer(certificate, options);
-    if(signerCertInvalidReason) untrustedReasons.push(signerCertInvalidReason);
-
-    if(!issuer) {
-        return {
-            issuer: null,
-            trusted: false,
-            untrustedReasons: untrustedReasons,
-        };
-    }
-
-    if(untrustedReasons.length === 0 && options.checkCRL) {
-        const revocation = await checkCertificateRevocation(certificate, issuer.certificate, options);
-        if(revocation.revoked) untrustedReasons.push(UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_REVOKED);
-    }
-
-    return {
-        issuer: issuer,
-        trusted: untrustedReasons.length === 0,
-        untrustedReasons: untrustedReasons,
-    };
-};
-
-const checkIfCertificateHasIssuerInfo = (certificate) => {
-    if(!certificate) return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING;
-    if(!getAuthorityKeyIdentifier(certificate))
-        return UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING;
-};
-
-const getIssuer = async (certificate, options = {}) => {
-    let registryFetchFailed = false;
-    const candidates = await getIssuerCandidatesForCertificate$1(certificate,
-        options.trustedIssuerCertificates);
-    if(options.trustedIssuerRegistryEnabled !== false) {
-        try {
-            candidates.push(...await getIssuerCandidatesForCertificate(certificate));
-        } catch(error) {
-            registryFetchFailed = true;
-        }
-    }
-    if(candidates.length === 0) {
-        return {
-            issuer: null,
-            untrustedReasons: [registryFetchFailed
-                ? UntrustedReason.ISSUER_FETCH_FAILED
-                : UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND],
-        };
-    }
-    for(const candidate of candidates) {
-        const reason = getIssuerCertificateValidityReason(candidate.certificate);
-        const trusted = isIssuerTrustedByTrustLists(candidate, options.trustLists);
-        if(!reason && trusted) return {
-            issuer: candidate,
-            untrustedReasons: [],
-        };
-    }
-    const issuer = candidates[0];
-    const reason = getIssuerCertificateValidityReason(issuer.certificate);
-    const trusted = isIssuerTrustedByTrustLists(issuer, options.trustLists);
-    const untrustedReasons = [];
-    if(reason) untrustedReasons.push(reason);
-    if(!trusted) untrustedReasons.push(UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS);
-
-    return { issuer, untrustedReasons };
-};
-
-const isIssuerTrustedByTrustLists = (issuer, trustLists) => {
-    if(!Array.isArray(issuer.certificate?.trust_lists)) return false;
-    if(issuer.certificate.trust_lists.includes(USER_PROVIDED_TRUST_LIST)) return true;
-    if(!trustLists) trustLists = Object.values(TrustList);
-    return issuer.certificate.trust_lists.some(trustList => trustLists.includes(trustList));
-};
-
 class OpenID4VPProtocolHelper {
     constructor() {
         this.protocol = Protocol.OPENID4VP;
@@ -26979,7 +26940,7 @@ class OpenID4VPProtocolHelper {
         }
         for(const document of documents) {
             const { claims: documentClaims, certificate, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            const trustInfo = await getDocumentTrustInfo(certificate, options);
+            const trustInfo = await options.registry.resolveCertificateTrust(certificate, options);
             trusted = trusted && trustInfo.trusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
@@ -26989,7 +26950,7 @@ class OpenID4VPProtocolHelper {
                 claims: documentClaims,
                 valid: documentValid,
                 trusted: trustInfo.trusted,
-                issuer: trustInfo.issuer,
+                issuer: trustInfo.issuer || null,
                 document: document,
             };
             if(!documentValid) processedDocument.invalidReasons = invalidReasons;
@@ -29130,7 +29091,7 @@ class MDOCProtocolHelper {
 
         for(const document of documents) {
             const { claims: documentClaims, certificate, valid: documentValid, invalidReasons } = await verifyDocument(document, sessionTranscript);
-            const trustInfo = await getDocumentTrustInfo(certificate, options);
+            const trustInfo = await options.registry.resolveCertificateTrust(certificate, options);
             trusted = trusted && trustInfo.trusted;
             valid = valid && documentValid;
             for(const key in documentClaims) {
@@ -29140,7 +29101,7 @@ class MDOCProtocolHelper {
                 claims: documentClaims,
                 valid: documentValid,
                 trusted: trustInfo.trusted,
-                issuer: trustInfo.issuer,
+                issuer: trustInfo.issuer || null,
                 document: document,
             };
             if(!documentValid) processedDocument.invalidReasons = invalidReasons;
@@ -29193,16 +29154,9 @@ const mdocProtocolHelper = new MDOCProtocolHelper();
 class Verifier {
     constructor(options = {}) {
         options = options || {};
-        const registry = options.trustedIssuerRegistry || {};
-        this.trustedIssuerRegistry = {
-            enabled: registry.enabled !== false,
-            trustLists: Array.isArray(registry.trustLists)
-                ? [...registry.trustLists]
-                : registry.trustLists || Object.values(TrustList),
-        };
-        this.trustedIssuerCertificates = normalizeIssuerCertificates(options.trustedIssuerCertificates);
-        this.crl = normalizeCRLConfig(options.crl);
-        this.crlCache = new Map();
+        this.trustLists = [...(options.trustLists ?? Object.values(TrustList))];
+        this.trustScope = options.trustScope;
+        this._registry = new Registry(options.trustedIssuerRegistry || {});
     }
 
     /**
@@ -29366,15 +29320,13 @@ class Verifier {
             throw new Error('Credential response missing data');
 
         const verificationOptions = {
-            trustedIssuerRegistryEnabled: this.trustedIssuerRegistry.enabled,
-            trustLists: this.trustedIssuerRegistry.trustLists,
-            trustedIssuerCertificates: this.trustedIssuerCertificates,
-            checkCRL: this.crl.enabled,
-            crlTimeout: this.crl.timeout,
-            crlCacheEnabled: this.crl.cache.enabled,
-            crlCacheTTL: this.crl.cache.ttl,
-            crlCache: this.crlCache,
+            registry: this._registry,
+            trustLists: this.trustLists,
+            trustScope: this.trustScope,
         };
+        if(verificationOptions.trustLists.length > 0) {
+            checkRegistryDeprecation(this._registry);//No need to wait for this to complete
+        }
 
         if(credentials.protocol === Protocol.OPENID4VP) {
             return await openid4vpProtocolHelper.verify(credentials.data, origin, nonce, verificationOptions);
@@ -29385,19 +29337,6 @@ class Verifier {
         }
     }
 }
-
-const normalizeCRLConfig = (crl = {}) => {
-    crl = crl || {};
-    const cache = crl.cache || {};
-    return {
-        enabled: crl.enabled === true,
-        timeout: crl.timeout,
-        cache: {
-            enabled: cache.enabled,
-            ttl: cache.ttl,
-        },
-    };
-};
 
 /**
  * Helper function to generate a nonce for request security
@@ -29429,4 +29368,4 @@ const generateJWK = async () => {
     return jwk;
 };
 
-export { Claim, CredentialFormat, DocumentType, InvalidReason, Protocol, ProtocolFormats, TrustList, UntrustedReason, Verifier, generateJWK, generateNonce };
+export { Claim, CredentialFormat, DocumentType, InvalidReason, Protocol, ProtocolFormats, RevocationCheckMode, TrustList, TrustScope, UntrustedReason, Verifier, generateJWK, generateNonce };

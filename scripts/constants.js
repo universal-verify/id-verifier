@@ -1,39 +1,15 @@
-/**
- * Supported trust lists
- */
-export const TrustList = {
-    UV: 'uv',
-    AAMVA_DTS: 'aamva_dts',
-};
-
-export const USER_PROVIDED_TRUST_LIST = 'user_provided';
+export { TrustList, UntrustedReason } from 'trusted-issuer-registry';
 
 /**
  * Reasons a document may fail cryptographic or data-integrity verification
  */
 export const InvalidReason = {
-    MSO_NOT_YET_VALID: 'MSO is not yet valid',
-    MSO_EXPIRED: 'MSO is expired',
-    ISSUER_AUTH_SIGNATURE_INVALID: 'IssuerAuth signature verification failed',
-    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is missing from IssuerAuth x5chain',
-    DEVICE_AUTH_FAILED: 'Failed to verify device authentication',
-    CLAIM_DIGEST_MISMATCH: 'Claim digest does not match IssuerAuth value digest',
-};
-
-/**
- * Reasons issuer trust evaluation may fail
- */
-export const UntrustedReason = {
-    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'Document signer certificate is required to determine issuer trust',
-    DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING: 'Document signer certificate does not contain an Authority Key Identifier',
-    DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID: 'Document signer certificate is not yet valid',
-    DOCUMENT_SIGNER_CERTIFICATE_EXPIRED: 'Document signer certificate is expired',
-    ISSUER_FETCH_FAILED: 'Unable to retrieve issuer from trusted issuer registry',
-    ISSUER_CERTIFICATE_NOT_FOUND: 'No trusted issuer certificate found to validate the document signer certificate',
-    ISSUER_CERTIFICATE_NOT_YET_VALID: 'Issuer certificate is not yet valid',
-    ISSUER_CERTIFICATE_EXPIRED: 'Issuer certificate is expired',
-    ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS: 'Issuer certificate is not trusted by the requested trust lists',
-    DOCUMENT_SIGNER_CERTIFICATE_REVOKED: 'Document signer certificate has been revoked by CRL',
+    MSO_NOT_YET_VALID: 'mso_not_yet_valid',
+    MSO_EXPIRED: 'mso_expired',
+    ISSUER_AUTH_SIGNATURE_INVALID: 'issuer_auth_signature_invalid',
+    DOCUMENT_SIGNER_CERTIFICATE_MISSING: 'document_signer_certificate_missing',
+    DEVICE_AUTH_FAILED: 'device_auth_failed',
+    CLAIM_DIGEST_MISMATCH: 'claim_digest_mismatch',
 };
 
 /**

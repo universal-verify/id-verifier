@@ -1,6 +1,6 @@
 # ID Verifier
 
-A JavaScript library that simplifies requesting mobile IDs built on top of the new W3C Digital Credentials API. [See it in action here](https://universal-verify.github.io/id-verifier/), and consider sponsoring this project or least giving it a shoutout if you feel it's helped in any way ⭐
+A JavaScript library that simplifies requesting and verifying mobile IDs. [See it in action here](https://universal-verify.github.io/id-verifier/), and consider sponsoring this project or at least giving it a shoutout if you feel it's helped in any way ⭐
 
 ## Features
 
@@ -72,14 +72,18 @@ While this example does run on the frontend, it is __strongly__ encouraged to cr
 ### Constants
 
 #### `DocumentType`
+
 Supported document types:
+
 - `MOBILE_DRIVERS_LICENSE` - Mobile Driver's License (ISO 18013-5 mDL)
 - `PHOTO_ID` - Photo ID (ISO 23220)
 - `EU_PERSONAL_ID` - EU Personal ID (European Digital Identity)
 - `JAPAN_MY_NUMBER_CARD` - Japan My Number Card
 
 #### `Claim`
+
 Supported claim fields that can be requested:
+
 - `GIVEN_NAME` - Given name
 - `FAMILY_NAME` - Family name
 - `BIRTH_DATE` - Birth date
@@ -110,40 +114,55 @@ Supported claim fields that can be requested:
 - `SIGNATURE` - Signature
 
 #### `TrustList`
-Supported trust lists that can be used in `trustedIssuerRegistry.trustLists`:
 
-| Constant | Value | Description |
-| --- | --- | --- |
-| `TrustList.UV` | `uv` | Issuers trusted by Universal Verify |
-| `TrustList.AAMVA_DTS` | `aamva_dts` | Issuers trusted by the American Association of Motor Vehicle Administrators |
+Supported trust lists that can be used in `trustLists`:
+
+- `UV` - Issuers trusted by Universal Verify
+- `AAMVA_DTS` - Issuers trusted by the American Association of Motor Vehicle Administrators
+
+#### `TrustScope`
+
+Optional issuer scope restrictions for `trustScope`:
+
+- `GOVERNMENT_ISSUED_ID` - Government-issued identity documents
+- `DOCUMENT_SIGNING` - Documents signed by the issuer
+
+#### `RevocationCheckMode`
+
+Controls document signer certificate revocation checks through CRLs:
+
+- `SKIP` - Skip revocation checks (default)
+- `BEST_EFFORT` - Reject confirmed revocation; allow undetermined status
+- `REQUIRED` - Reject confirmed revocation and undetermined status
 
 #### `InvalidReason`
-Stable string constants for `processedDocuments[].invalidReasons`, used when a document fails cryptographic or data-integrity verification.
 
-| Constant | Value |
-| --- | --- |
-| `InvalidReason.MSO_NOT_YET_VALID` | `MSO is not yet valid` |
-| `InvalidReason.MSO_EXPIRED` | `MSO is expired` |
-| `InvalidReason.ISSUER_AUTH_SIGNATURE_INVALID` | `IssuerAuth signature verification failed` |
-| `InvalidReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING` | `Document signer certificate is missing from IssuerAuth x5chain` |
-| `InvalidReason.DEVICE_AUTH_FAILED` | `Failed to verify device authentication` |
-| `InvalidReason.CLAIM_DIGEST_MISMATCH` | `Claim digest does not match IssuerAuth value digest` |
+Failure codes for `processedDocuments[].invalidReasons`, used when a document fails cryptographic or data-integrity verification.
+
+- `MSO_NOT_YET_VALID` - MSO is not yet valid
+- `MSO_EXPIRED` - MSO is expired
+- `ISSUER_AUTH_SIGNATURE_INVALID` - IssuerAuth signature verification failed
+- `DOCUMENT_SIGNER_CERTIFICATE_MISSING` - Document signer certificate is missing from IssuerAuth x5chain
+- `DEVICE_AUTH_FAILED` - Failed to verify device authentication
+- `CLAIM_DIGEST_MISMATCH` - Claim digest does not match IssuerAuth value digest
 
 #### `UntrustedReason`
-Stable string constants for `processedDocuments[].untrustedReasons`, used when issuer trust evaluation fails.
 
-| Constant | Value |
-| --- | --- |
-| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_MISSING` | `Document signer certificate is required to determine issuer trust` |
-| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_AKI_MISSING` | `Document signer certificate does not contain an Authority Key Identifier` |
-| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_NOT_YET_VALID` | `Document signer certificate is not yet valid` |
-| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_EXPIRED` | `Document signer certificate is expired` |
-| `UntrustedReason.ISSUER_FETCH_FAILED` | `Unable to retrieve issuer from trusted issuer registry` |
-| `UntrustedReason.ISSUER_CERTIFICATE_NOT_FOUND` | `No trusted issuer certificate found to validate the document signer certificate` |
-| `UntrustedReason.ISSUER_CERTIFICATE_NOT_YET_VALID` | `Issuer certificate is not yet valid` |
-| `UntrustedReason.ISSUER_CERTIFICATE_EXPIRED` | `Issuer certificate is expired` |
-| `UntrustedReason.ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS` | `Issuer certificate is not trusted by the requested trust lists` |
-| `UntrustedReason.DOCUMENT_SIGNER_CERTIFICATE_REVOKED` | `Document signer certificate has been revoked by CRL` |
+Trust failure codes from `trusted-issuer-registry`, used in `processedDocuments[].untrustedReasons` and `processedDocuments[].issuer.certificates[].untrustedReasons`.
+
+- `CERTIFICATE_MISSING` - Document signer certificate is required to determine issuer trust
+- `CERTIFICATE_AKI_MISSING` - Document signer certificate does not contain an Authority Key Identifier
+- `CERTIFICATE_NOT_YET_VALID` - Document signer certificate is not yet valid
+- `CERTIFICATE_EXPIRED` - Document signer certificate is expired
+- `CERTIFICATE_REVOKED` - Document signer certificate has been revoked by CRL
+- `REVOCATION_STATUS_UNDETERMINED` - Unable to determine document signer certificate revocation status
+- `ISSUER_FETCH_FAILED` - Unable to retrieve issuer from trusted issuer registry
+- `ISSUER_CERTIFICATE_NOT_FOUND` - No trusted issuer certificate found to validate the document signer certificate
+- `CERTIFICATE_SIGNATURE_VERIFICATION_FAILED` - Document signer certificate signature could not be verified with the issuer certificate
+- `ISSUER_CERTIFICATE_NOT_YET_VALID` - Issuer certificate is not yet valid
+- `ISSUER_CERTIFICATE_EXPIRED` - Issuer certificate is expired
+- `ISSUER_CERTIFICATE_NOT_IN_TRUST_LISTS` - Issuer certificate is not trusted by the requested trust lists
+- `ISSUER_MISSING_REQUIRED_TRUST_SCOPE` - Issuer does not have the requested trust scope
 
 ### Classes
 
@@ -152,47 +171,43 @@ Stable string constants for `processedDocuments[].untrustedReasons`, used when i
 Creates an ID verifier with optional verification configuration.
 
 **Constructor options:**
-- `trustedIssuerRegistry` (Object): trusted-issuer-registry configuration
-  - `enabled` (boolean): Whether to use the issuer registry for trust evaluation (default: true)
-  - `trustLists` (Array<string>): Names of registry trust lists to use for determining trust (default: all available)
-- `trustedIssuerCertificates` (Array<string|Object>): PEM-encoded X.509 issuer certificates trusted directly by the verifier. Use this when you want to trust issuers not listed in the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). To provide richer issuer details, entries can also be issuer objects.
-- `crl` (Object): CRL checking configuration
-  - `enabled` (boolean): Whether to check document signer certificate CRLs for certificate revocation (default: false)
-  - `timeout` (number): CRL request timeout in milliseconds (default: 5000)
-  - `cache` (Object): CRL cache configuration
-    - `enabled` (boolean): Whether to cache CRL fetch results in memory by URL (default: true)
-    - `ttl` (number): CRL cache TTL in milliseconds (default: 86400000)
+
+- `trustLists` (Array<string>): Registry trust lists to use for determining trust (default: `TrustList.UV` and `TrustList.AAMVA_DTS`). An empty array skips registry lookups and only looks at user provided `trustedIssuerCertificates`
+- `trustScope` (string): Optional required issuer scope from `TrustScope`, applied to both registry and user-provided issuers (default: no scope restriction)
+- `trustedIssuerRegistry` (Object): Issuer certificate, revocation, and network configuration
+    - `trustedIssuerCertificates` (Array<string|Object>): PEM-encoded X.509 issuer certificates trusted directly by the verifier. Use this when you want to trust issuers not listed in the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Entries can also be objects with a `data` PEM string and optional `format`, `trust_scopes`, `entity_type`, `entity_metadata`, and `display` fields, as described in the [registry constructor documentation](https://github.com/universal-verify/trusted-issuer-registry#new-registryoptions--).
+    - `revocationCheckMode` (string): CRL checking mode from `RevocationCheckMode` (default: `RevocationCheckMode.SKIP`)
+    - `timeout` (number): Timeout in milliseconds for each issuer, deprecation, or CRL request, including reading its response body (default: 10000)
+    - `cacheEnabled` (boolean): Whether to cache issuer, deprecation, and CRL responses in memory per verifier (default: true)
+    - `cacheTTL` (number): Cache lifetime in milliseconds (default: 86400000)
 
 Registry trust lists are sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry). Current values are `aamva_dts` and `uv` at the time of writing.
 
-Certificates passed through `trustedIssuerCertificates` are trusted directly and do not need to be included in `trustedIssuerRegistry.trustLists`. Their returned certificate metadata uses `trust_lists: ['user_provided']`.
+Certificates passed through `trustedIssuerRegistry.trustedIssuerCertificates` will not be filtered out by `trustLists`. Their returned certificate metadata uses `trust_lists: ['user_provided']`.
 
-CRL checking affects whether a digital credential is trusted and is performed on a best-effort basis. CRLs that cannot be fetched or processed do not throw an error and do not impact trust.
+When a `trustScope` is requested, the issuer's `trust_scopes` must include that scope. If using only user-provided issuers, supply the scope in the certificate object's `trust_scopes` field.
 
 **Example:**
 ```javascript
+import { Verifier, TrustList, RevocationCheckMode } from 'id-verifier';
+
 const verifier = new Verifier({
+  trustLists: [TrustList.UV],
   trustedIssuerRegistry: {
-    enabled: true,
-    trustLists: [TrustList.UV]
-  },
-  trustedIssuerCertificates: [
-    '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
-    // or pass in issuer objects
-    {
-      data: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
-      entity_type: 'government',
-      entity_metadata: { country: 'CA', region: 'QC' },
-      display: { name: 'Québec SAAQ' }
-    }
-  ],
-  crl: {
-    enabled: true,
-    timeout: 5000,
-    cache: {
-      enabled: true,
-      ttl: 86400000
-    }
+    trustedIssuerCertificates: [
+      '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
+      // or pass in issuer objects
+      {
+        data: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
+        entity_type: 'government',
+        entity_metadata: { country: 'CA', region: 'QC' },
+        display: { name: 'Québec SAAQ' }
+      }
+    ],
+    revocationCheckMode: RevocationCheckMode.BEST_EFFORT,
+    timeout: 10000,
+    cacheEnabled: true,
+    cacheTTL: 86400000
   }
 });
 ```
@@ -318,21 +333,23 @@ The `verifier.processCredentials` function returns an object with the following 
         "entity_type": "government",
         "entity_metadata": {
           "country": "US",
-          "region": "VA",
-          "government_level": "state",
-          "official_name": "Multipaz"
+          "region": "VA"
         },
         "display": {
           "name": "Multipaz IACA Test",
           "logo": "https://avatars.githubusercontent.com/u/131064301",
           "description": "Official issuer of mobile driver's licenses and proof of age credentials in Multipaz."
         },
-        "signature": "MEUCIQDrmlcELKPJHKiwlb/90zNPoiweAry0tF+j/LA21wxlWAIgNIeWgJc3dijrwrjRmMjJwecxif4hMi87zD55k7DOLLM=",
-        "certificate": {
-          "data": "-----BEGIN CERTIFICATE-----\n...",
-          "format": "pem",
-          "trust_lists": ["uv"]
-        }
+        "trust_scopes": ["government_issued_id"],
+        "certificates": [
+          {
+            "data": "-----BEGIN CERTIFICATE-----\n...",
+            "format": "pem",
+            "trust_lists": ["uv"],
+            "trusted": true,
+            "revocationStatus": "not_checked"
+          }
+        ]
       }
     }
   ],
@@ -341,17 +358,20 @@ The `verifier.processCredentials` function returns an object with the following 
 ```
 
 **Response Fields:**
+
 - `claims` (Object): Combined claims from all processed documents
 - `valid` (Boolean): Whether all documents are valid
 - `trusted` (Boolean): Whether all documents are from trusted issuers
 - `processedDocuments` (Array): Array of individual processed documents
   - `claims` (Object): Claims extracted from this specific document
   - `valid` (Boolean): Whether this document is valid
-  - `trusted` (Boolean): Whether this document's issuer is trusted by one of the given trust lists
+  - `trusted` (Boolean): Whether the document signer and at least one issuer certificate pass the requested trust checks
   - `invalidReasons` (Array<string>): Reasons this document is invalid, present only when `valid` is false
   - `untrustedReasons` (Array<string>): Reasons this document is untrusted, present only when `trusted` is false
   - `document` (Object): Full unencrypted document data
-  - `issuer` (Object): Issuer information sourced from the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry), `null` when no trusted issuer certificate is available
+  - `issuer` (Object): Issuer metadata merged from user-provided certificates and the [trusted-issuer-registry](https://github.com/universal-verify/trusted-issuer-registry), `null` when no issuer is found
+    - `trust_scopes` (Array<string>): Supported issuer scopes
+    - `certificates` (Array<Object>): All issuer certificates, each with `data`, `format`, `trust_lists`, `trusted`, and `revocationStatus` (`not_checked`, `not_revoked`, or `revoked`). Untrusted certificates also include `untrustedReasons`
 - `sessionTranscript` (Object): Session transcript that was used for decryption/verification
 
 ## Browser Support
