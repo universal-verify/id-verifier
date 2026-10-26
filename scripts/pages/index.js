@@ -333,7 +333,7 @@ class IndexPage {
             return false;
         }
 
-        this.updateStatus('✅ Digital Credentials API found! Requests <a href="https://caniuse.com/mdn-api_digitalcredential" target="_blank" style="text-decoration: underline; color: #007bff;">might</a> work.', 'success');
+        this.updateStatus('✅ Your browser supports the Digital Credentials API.', 'success');
         this.enableButtons();
         return true;
     }
